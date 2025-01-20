@@ -1,5 +1,6 @@
 use crate::properties::*;
 use vstd::prelude::*;
+use vstd::assert_seqs_equal;
 
 verus! {
 
@@ -90,7 +91,7 @@ impl SpecCombinator for UnsignedLEB128 {
 impl UnsignedLEB128 {
     /// Helper function for spec_serialize
     pub open spec fn spec_serialize_helper(v: UInt) -> Result<Seq<u8>, ()>
-        decreases v via Self::spec_serialize_dereases
+        decreases v via Self::spec_serialize_decreases
     {
         let lo = take_low_7_bits!(v);
         let hi = v >> 7;
@@ -106,7 +107,7 @@ impl UnsignedLEB128 {
     }
 
     #[via_fn]
-    proof fn spec_serialize_dereases(v: UInt)
+    proof fn spec_serialize_decreases(v: UInt)
     {
         assert(v >> 7 != 0 ==> v >> 7 < v) by (bit_vector);
     }
@@ -119,6 +120,51 @@ impl UnsignedLEB128 {
             v >> 7 >> 7 >> 7 >> 7 >> 7 >> 7 >> 7 >> 7 >> 7 >> 7 == 0
         ) by (bit_vector);
     }
+
+    proof fn lemma_serialize_last_byte_high_8_bit_not_set(&self, v: UInt)
+        ensures self.spec_serialize(v) matches Ok(s) ==> !is_high_8_bit_set!(s.last())
+        decreases v
+    {
+        let lo = take_low_7_bits!(v);
+        let hi = v >> 7;
+
+        if hi == 0 {
+            assert(!is_high_8_bit_set!(take_low_7_bits!(v))) by (bit_vector);
+            assert(self.spec_serialize(v) matches Ok(lo));
+        } else {
+            if let Ok(s) = Self::spec_serialize_helper(hi) {
+                assert(Self::spec_serialize_helper(v) matches Ok(vv) && vv == seq![set_high_8_bit!(lo)] + s);
+                assert(v >> 7 != 0 ==> v >> 7 < v) by (bit_vector);
+                self.lemma_serialize_last_byte_high_8_bit_not_set(hi);
+            } else {
+                assert(self.spec_serialize(v) is Err);
+            }
+        }
+    }
+
+    proof fn lemma_parse_high_8_bits_set_until_last(&self, s: Seq<u8>) 
+        ensures self.spec_parse(s) matches Ok((n, v)) ==> {
+            &&& forall |i: int| 0 <= i < n - 1 ==> is_high_8_bit_set!(s.spec_index(i))
+            &&& !(s[n-1] as u8 >= 0x80)  // is_high_8_bit_set!(s[n - 1])
+        }
+        decreases s.len()
+    {
+        if let Ok((n, v)) = self.spec_parse(s) {
+            assert(n <= s.len()) by { self.lemma_parse_length(s) };
+            let s0 = s[0];
+            if n == 1 {
+                // assert(!is_high_8_bit_set!(s0));
+                if (is_high_8_bit_set!(s0)) {
+                    assert(self.spec_parse(s.drop_first()) matches Ok((n1, _)) && n1 == 0);
+                    self.lemma_parse_productive(s.drop_first());
+                }
+            } else {
+                assert(is_high_8_bit_set!(s0));
+                self.lemma_parse_high_8_bits_set_until_last(s.drop_first());
+                assert_seqs_equal!(s == seq![s0] + s.drop_first());
+            }
+        }
+    }
 }
 
 impl SecureSpecCombinator for UnsignedLEB128 {
@@ -126,8 +172,41 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         true
     }
 
-    proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
-        assume(false);
+    proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) 
+        decreases s1.len()
+    {
+        if Self::is_prefix_secure() {
+            if let Ok((n1, v1)) = self.spec_parse(s1) {
+                // assert(n1 <= s1.len()) by { self.lemma_parse_length(s1) };
+                // let s1_0 = s1[0];
+                // if n1 == 1 {
+                //     // assert(!is_high_8_bit_set!(s0));
+                //     if (is_high_8_bit_set!(s1_0)) {
+                //         assert(self.spec_parse(s1.drop_first()) matches Ok((n1_1, _)) && n1_1 == 0);
+                //         self.lemma_parse_productive(s1.drop_first());
+                //         assume(false);
+                //     }
+                //     assume(false);
+                // } else {
+                //     // assert(is_high_8_bit_set!(s0));
+                //     // self.lemma_parse_high_8_bits_set_until_last(s.drop_first());
+                //     self.lemma_prefix_secure(s1.drop_first(), s2);
+                //     assert_seqs_equal!(s1 == seq![s1_0] + s1.drop_first());
+                // }
+
+                // self.lemma_parse_high_8_bits_set_until_last(s1);
+                // assert(!(s1[n1-1] as u8 >= 0x80));
+                // if let Ok((n2, v2)) = self.spec_parse(s1.add(s2)) {
+                //     assert(n1 <= n2);
+                //     assume(false);
+                // } else {
+                //     assume(false);
+                //     // should be unreachable
+                //     assert(false);
+                // }
+                admit();
+            }
+        }
     }
 
 
@@ -183,5 +262,38 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         }
     }
 }
+
+impl<I,O> Combinator<I,O> for UnsignedLEB128 
+    where I: VestInput, O: VestOutput<I>
+{
+    type Type = UInt;
+
+    open spec fn spec_length(&self) -> Option<usize> {
+        None // TODO
+    }
+
+    fn length(&self) -> Option<usize> {
+        None // TODO
+    }
+
+    open spec fn parse_requires(&self) -> bool {
+        true
+    }
+
+    fn parse(&self, s: I) -> (res: PResult<Self::Type, ParseError>) {
+        proof { admit(); }
+        Err(ParseError::Other("todo".to_string()))
+    }
+
+    open spec fn serialize_requires(&self) -> bool {
+        true
+    }
+
+    fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>) {
+        proof { admit(); }
+        Err(SerializeError::Other("todo".to_string()))
+    }
+}
+
 
 }
