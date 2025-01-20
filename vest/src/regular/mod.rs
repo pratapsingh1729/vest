@@ -44,3 +44,5 @@ pub mod tail;
 pub mod terminated;
 /// Uints combinator
 pub mod uints;
+/// LEB128 combinator
+pub mod leb128;
