@@ -11,6 +11,8 @@ builtin = { git = "https://github.com/verus-lang/verus", branch = "main" }
 vstd = { git = "https://github.com/verus-lang/verus", branch = "main" }
 
 [dev-dependencies]
+leb128 = "0.2.5"
+rand = "0.8.5"
 
 [package.metadata.verus.ide]
 extra_args = "--crate-type=lib --expand-errors --test"
