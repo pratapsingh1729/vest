@@ -390,9 +390,21 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         }
     }
 
-    proof fn theorem_parse_serialize_roundtrip(&self, s: Seq<u8>) 
+    proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) 
     {
-        assume(false);
+        if let Ok((n,v)) = self.spec_parse(buf) {
+            assert(buf.len() != 0);
+            if is_high_8_bit_set!(buf.first()) {
+                assume(false);
+                // self.lemma_parse_high_8_bits_set_until_last(buf);
+            } else {
+                let first = buf.first();
+                assert(first == take_low_7_bits!(first)) by (bit_vector) requires !is_high_8_bit_set!(first);
+                assert(take_low_7_bits!(first) >> 7 == 0) by (bit_vector);
+                assert(take_low_7_bits!(first) == take_low_7_bits!(take_low_7_bits!(first))) by (bit_vector);
+                assert_seqs_equal!(buf.take(n as int) == seq![first]);
+            }
+        }
     }
 
     open spec fn is_productive(&self) -> bool {
@@ -485,11 +497,11 @@ impl<I,O> Combinator<I,O> for UnsignedLEB128
     }
 
     // fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>) {
+    //     let ghost orig_v = v;
     //     let mut v = v;
     //     let mut i = 0;
     //     let mut pos = pos;
 
-    //     let ghost orig_v = v;
     //     let ghost spec_res = self.spec_serialize(v);
     //     proof { self.lemma_spec_serialize_length(v) }
     //     proof { admit() };
