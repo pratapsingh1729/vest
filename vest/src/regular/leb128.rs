@@ -405,8 +405,34 @@ impl<I,O> Combinator<I,O> for UnsignedLEB128
         true
     }
 
+    // fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
+    //     self.exec_parse_rec_helper(ss.as_byte_slice())
+    // }
+
     fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
-        self.exec_parse_rec_helper(ss.as_byte_slice())
+        let s = ss.as_byte_slice();
+
+        let mut msb_idx = 0;
+        while msb_idx < s.len() {
+            if !is_high_8_bit_set!(s[msb_idx]) {
+                break;
+            }
+            msb_idx += 1;
+        }
+        if msb_idx == s.len() {
+            return Err(ParseError::UnexpectedEndOfInput);
+        }
+        let mut i = msb_idx; 
+        let mut v: UInt = take_low_7_bits!(s[i]) as UInt;
+        while i > 0 {
+            i -= 1;
+            if 0 < v && v <= n_bit_max_unsigned!(8 * uint_size!() - 7) {
+                v = v << 7 | take_low_7_bits!(s[i]) as UInt;
+            } else {
+                return Err(ParseError::SizeOverflow);
+            }
+        }
+        Ok((msb_idx + 1, v))
     }
 
     // fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
