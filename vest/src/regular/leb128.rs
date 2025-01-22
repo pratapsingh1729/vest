@@ -270,6 +270,45 @@ impl UnsignedLEB128 {
             Err(ParseError::UnexpectedEndOfInput)
         }
     }
+
+    fn exec_serialize_rec_helper<I,O>(&self, v: UInt, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>)
+        where I:VestPublicInput, O:VestPublicOutput<I>
+        ensures
+            buf@.len() == old(buf)@.len(),
+            res matches Ok(n) ==> {
+                &&& self@.spec_serialize(v@) matches Ok(b)
+                &&& b.len() == n
+                &&& buf@ == seq_splice(old(buf)@, pos, b)
+            },
+    {
+        let lo = take_low_7_bits!(v);
+        let hi = v >> 7;
+        if hi == 0 {
+            if pos >= buf.len() {
+                return Err(SerializeError::InsufficientBuffer);
+            }
+            buf.set_byte(pos, lo);
+            assert(self@.spec_serialize(v@) matches Ok(b) && buf@ == seq_splice(old(buf)@, pos, b));
+            Ok(1)
+        } else {
+            if pos >= buf.len() {
+                return Err(SerializeError::InsufficientBuffer);
+            }
+            let n_written = self.exec_serialize_rec_helper(hi, buf, pos + 1)?;
+            buf.set_byte(pos, set_high_8_bit!(lo));
+            proof { 
+                if let Ok(s_hi) = self.spec_serialize(hi@) {
+                    assert(buf@ == seq_splice(seq_splice(old(buf)@, (pos + 1) as usize, s_hi), pos, seq![set_high_8_bit!(lo)]));
+                    assert_seqs_equal!(
+                        seq_splice(seq_splice(old(buf)@, (pos + 1) as usize, s_hi), pos, seq![set_high_8_bit!(lo)])
+                        ==
+                        seq_splice(old(buf)@, pos, seq![set_high_8_bit!(lo)] + s_hi)
+                    );
+                }
+            }
+            Ok(n_written + 1)
+        }
+    }
 }
 
 impl SecureSpecCombinator for UnsignedLEB128 {
@@ -441,55 +480,59 @@ impl<I,O> Combinator<I,O> for UnsignedLEB128
     }
 
     fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>) {
-        let mut v = v;
-        let mut i = 0;
-        let mut pos = pos;
-
-        let ghost orig_v = v;
-        let ghost spec_res = self.spec_serialize(v);
-        proof { self.lemma_spec_serialize_length(v) }
-        proof { admit() };
-
-        assert(v == orig_v >> 0) by (bit_vector) requires v == orig_v;
-
-        while v > 0 
-            invariant 
-                0 <= i <= 10,
-                buf@.len() == old(buf)@.len(),
-                v == orig_v >> (i * 7),
-                self.spec_serialize(orig_v) matches Ok(s) ==> {
-                    &&& 0 <= i < s.len() <= 10
-                    &&& s.subrange(0, i as int) == buf@.subrange(pos as int, pos + i as int)
-                } 
-            decreases v
-        {
-            proof { admit() };
-            let lo = take_low_7_bits!(v);
-            let hi = v >> 7;
-            let byte = if hi == 0 { lo } else { set_high_8_bit!(lo) };
-
-            if pos >= buf.len() {
-                return Err(SerializeError::InsufficientBuffer);
-            }
-            buf.set_byte(pos, byte);
-
-            pos += 1;
-
-            assert(v >> 7 != 0 ==> v >> 7 < v) by (bit_vector);
-            assert(v >> 7 == orig_v >> ((i as u64 + 1) * 7)) by (bit_vector)
-                requires v == orig_v >> (i as u64 * 7), 0 <= i <= 10; 
-            v = hi;
-            i += 1;
-            if i > 10 {
-                // should be unreachable for well-formed inputs
-                proof { self.lemma_spec_serialize_length(orig_v) }
-                // assert(self.spec_serialize(orig_v) is Err);
-                return Err(SerializeError::Other("Failed to serialize LEB128: too long".to_string()));
-            }
-            assert(i <= 10);
-        }
-        Ok(pos)
+        self.exec_serialize_rec_helper(v, buf, pos)
     }
+
+    // fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>) {
+    //     let mut v = v;
+    //     let mut i = 0;
+    //     let mut pos = pos;
+
+    //     let ghost orig_v = v;
+    //     let ghost spec_res = self.spec_serialize(v);
+    //     proof { self.lemma_spec_serialize_length(v) }
+    //     proof { admit() };
+
+    //     assert(v == orig_v >> 0) by (bit_vector) requires v == orig_v;
+
+    //     while v > 0 
+    //         invariant 
+    //             0 <= i <= 10,
+    //             buf@.len() == old(buf)@.len(),
+    //             v == orig_v >> (i * 7),
+    //             self.spec_serialize(orig_v) matches Ok(s) ==> {
+    //                 &&& 0 <= i < s.len() <= 10
+    //                 &&& s.subrange(0, i as int) == buf@.subrange(pos as int, pos + i as int)
+    //             } 
+    //         decreases v
+    //     {
+    //         proof { admit() };
+    //         let lo = take_low_7_bits!(v);
+    //         let hi = v >> 7;
+    //         let byte = if hi == 0 { lo } else { set_high_8_bit!(lo) };
+
+    //         if pos >= buf.len() {
+    //             return Err(SerializeError::InsufficientBuffer);
+    //         }
+    //         buf.set_byte(pos, byte);
+
+    //         pos += 1;
+
+    //         assert(v >> 7 != 0 ==> v >> 7 < v) by (bit_vector);
+    //         assert(v >> 7 == orig_v >> ((i as u64 + 1) * 7)) by (bit_vector)
+    //             requires v == orig_v >> (i as u64 * 7), 0 <= i <= 10; 
+    //         v = hi;
+    //         i += 1;
+    //         if i > 10 {
+    //             // should be unreachable for well-formed inputs
+    //             proof { self.lemma_spec_serialize_length(orig_v) }
+    //             // assert(self.spec_serialize(orig_v) is Err);
+    //             return Err(SerializeError::Other("Failed to serialize LEB128: too long".to_string()));
+    //         }
+    //         assert(i <= 10);
+    //     }
+    //     Ok(pos)
+    // }
 }
 
 
