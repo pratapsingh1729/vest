@@ -390,7 +390,8 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         }
     }
 
-    proof fn theorem_parse_serialize_roundtrip(&self, s: Seq<u8>) {
+    proof fn theorem_parse_serialize_roundtrip(&self, s: Seq<u8>) 
+    {
         assume(false);
     }
 
@@ -582,6 +583,53 @@ fn randomly_test_vest_leb128() {
         test_vest_serializer(v);
     }
 }
+
+// #[cfg(test)]
+// extern crate test;
+
+// #[cfg(test)]
+// use test::Bencher;
+
+// #[bench]
+// fn bench_vest_leb128_parse(b: &mut Bencher) {
+//     use rand::Rng;
+//     let mut rng = rand::thread_rng();
+//     let mut buf = vec![0u8; 20];
+//     let v: u64 = rng.gen();
+//     let num_written = leb128::write::unsigned(&mut buf, v).expect("leb128 crate write failed");
+
+//     b.iter(|| {
+//         let pres = <_ as Combinator<&[u8], Vec<u8>>>::parse(&UnsignedLEB128, &buf[buf.len()-num_written..]);
+//         match pres {
+//             Ok((_n_parsed, v_parsed)) => {
+//                 ()
+//             }
+//             Err(e) => {
+//                 panic!("Failed to parse: {:?}", e);
+//             }
+//         }
+//     });
+// }
+
+// #[bench]
+// fn bench_vest_leb128_ser(b: &mut Bencher) {
+//     use rand::Rng;
+//     let mut rng = rand::thread_rng();
+//     let mut buf = vec![0u8; 20];
+//     let v: u64 = rng.gen();
+
+//     b.iter(|| {
+//         let sres = <_ as Combinator<&[u8], Vec<u8>>>::serialize(&UnsignedLEB128, v, &mut buf, 0);
+//         match sres {
+//             Ok((_n_parsed)) => {
+//                 ()
+//             }
+//             Err(e) => {
+//                 panic!("Failed to serialize: {:?}", e);
+//             }
+//         }
+//     });
+// }
 
 
 }
