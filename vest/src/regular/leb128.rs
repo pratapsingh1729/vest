@@ -1,6 +1,7 @@
 use crate::properties::*;
 use vstd::prelude::*;
 use vstd::assert_seqs_equal;
+use vstd::assert_by_contradiction;
 
 verus! {
 
@@ -219,7 +220,7 @@ impl UnsignedLEB128 {
     proof fn lemma_parse_high_8_bits_set_until_last(&self, s: Seq<u8>) 
         ensures self.spec_parse(s) matches Ok((n, v)) ==> {
             &&& forall |i: int| 0 <= i < n - 1 ==> is_high_8_bit_set!(s.spec_index(i))
-            &&& !(s[n-1] as u8 >= 0x80)  // is_high_8_bit_set!(s[n - 1])
+            &&& !(s[n-1] >= 0x80)  // is_high_8_bit_set!(s[n - 1])
         }
         decreases s.len()
     {
@@ -239,7 +240,6 @@ impl UnsignedLEB128 {
             }
         }
     }
-
 
     fn exec_parse_rec_helper(&self, s: &[u8]) -> (res: PResult<UInt, ParseError>)
         ensures
@@ -316,39 +316,61 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         true
     }
 
+
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) 
         decreases s1.len()
     {
         if Self::is_prefix_secure() {
             if let Ok((n1, v1)) = self.spec_parse(s1) {
-                // assert(n1 <= s1.len()) by { self.lemma_parse_length(s1) };
-                // let s1_0 = s1[0];
-                // if n1 == 1 {
-                //     // assert(!is_high_8_bit_set!(s0));
-                //     if (is_high_8_bit_set!(s1_0)) {
-                //         assert(self.spec_parse(s1.drop_first()) matches Ok((n1_1, _)) && n1_1 == 0);
-                //         self.lemma_parse_productive(s1.drop_first());
-                //         assume(false);
-                //     }
-                //     assume(false);
-                // } else {
-                //     // assert(is_high_8_bit_set!(s0));
-                //     // self.lemma_parse_high_8_bits_set_until_last(s.drop_first());
-                //     self.lemma_prefix_secure(s1.drop_first(), s2);
-                //     assert_seqs_equal!(s1 == seq![s1_0] + s1.drop_first());
-                // }
+                assert(n1 <= s1.len()) by { self.lemma_parse_length(s1) };
+                self.lemma_parse_high_8_bits_set_until_last(s1); 
+                assert(s1[n1-1] <= 0x80);
+                self.lemma_parse_productive(s1);
+                let s = s1 + s2;
+                assert(s[n1-1] <= 0x80);
 
-                // self.lemma_parse_high_8_bits_set_until_last(s1);
-                // assert(!(s1[n1-1] as u8 >= 0x80));
-                // if let Ok((n2, v2)) = self.spec_parse(s1.add(s2)) {
-                //     assert(n1 <= n2);
-                //     assume(false);
-                // } else {
-                //     assume(false);
-                //     // should be unreachable
-                //     assert(false);
-                // }
+                if let Ok((n2, v2)) = self.spec_parse(s) {
+                    assert_by_contradiction!(n2 <= n1, {
+                        self.lemma_parse_high_8_bits_set_until_last(s);
+                        let s_n1_minus_1 = s[n1-1];
+                        assert(is_high_8_bit_set!(s_n1_minus_1));
+                        assert(s[n1-1] > 0x80);
+                    });
+                } else {
+                    // should be unreachable
+                    assume(false);
+                }
+                assume(false);
+
+/*
+                let s1_0 = s1[0];
+                if n1 == 1 {
+                    // assert(!is_high_8_bit_set!(s0));
+                    if (is_high_8_bit_set!(s1_0)) {
+                        assert(self.spec_parse(s1.drop_first()) matches Ok((n1_1, _)) && n1_1 == 0);
+                        self.lemma_parse_productive(s1.drop_first());
+                        assert(false);
+                    }
+                    assume(false);
+                } else {
+                    // assert(is_high_8_bit_set!(s0));
+                    // self.lemma_parse_high_8_bits_set_until_last(s.drop_first());
+                    self.lemma_prefix_secure(s1.drop_first(), s2);
+                    assert_seqs_equal!(s1 == seq![s1_0] + s1.drop_first());
+                }
+
+                assume(false);
+                self.lemma_parse_high_8_bits_set_until_last(s1);
+                assert(!(s1[n1-1] as u8 >= 0x80));
+                if let Ok((n2, v2)) = self.spec_parse(s1.add(s2)) {
+                    assert(n1 <= n2);
+                } else {
+                    assume(false);
+                    // should be unreachable
+                    assert(false);
+                }
                 admit();
+*/
             }
         }
     }
