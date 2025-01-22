@@ -156,45 +156,12 @@ impl UnsignedLEB128 {
         ) by (bit_vector);
     }
 
-    proof fn lemma_spec_parse_length(&self, s: Seq<u8>)
-        ensures self.spec_parse(s) matches Ok((n, v)) ==> v <= 1 << (7 * n)
-        decreases s.len()
-    {
-        admit();
-        // if s.len() != 0 {
-        //     let v = take_low_7_bits!(s.first());
-        //     let s0 = s.first();
-        //     assert(take_low_7_bits!(s0) as UInt <= 1 << 7) by (bit_vector);
-        //     assert(v as UInt <= 1 << 7);
-        //     if is_high_8_bit_set!(s.first()) {
-        //         match self.spec_parse(s.drop_first()) {
-        //             Ok((n, v2)) => {
-        //                 if n < usize::MAX && 0 < v2 <= n_bit_max_unsigned!(8 * uint_size!() - 7) {
-        //                     self.lemma_spec_parse_length(s.drop_first());
-        //                     assert(v2 <= 1 << (7 * n));
-        //                     assert(n <= 10) by (bit_vector)
-        //                         requires v2 <= 1 << (7 * n), v2 <= n_bit_max_unsigned!(8 * uint_size!() - 7);
-        //                     assert(v2 << 7 as UInt <= ((1 << (7 * n)) as UInt) << 7) by (bit_vector)
-        //                         requires v2 <= 1 << (7 * n);
-        //                     assert(((1 << (7 * n)) as UInt) << 7 == (1 << (7 * (n + 1)) as UInt)) by (bit_vector);
-        //                     assert(v2 << 7 as UInt <= 1 << (7 * (n+1)));
-        //                     assert(v2 << 7 | v as UInt <= 1 << (7 * (n+1))) by (bit_vector)
-        //                         requires v2 << 7 as UInt <= 1 << (7 * (n+1)), v2 <= 1 << (7 * n), v as UInt <= 1 << 7;
-        //                     assert(v2 << 7 | v as UInt <= 1 << (7 * (n+1)));
-        //                 }
-        //             }
-        //             Err(_) => { }
-        //         }
-        //     }
-        // }
-    }
-
-    proof fn lemma_spec_parse_length_bound(&self, s: Seq<u8>)
-        ensures self.spec_parse(s) matches Ok((n, v)) ==> n < 10
-        decreases s.len()
-    {
-        admit();
-    }
+//    proof fn lemma_spec_parse_length_bound(&self, s: Seq<u8>)
+//        ensures self.spec_parse(s) matches Ok((n, v)) ==> n < 10
+//        decreases s.len()
+//    {
+//        admit();
+//    }
 
     proof fn lemma_serialize_last_byte_high_8_bit_not_set(&self, v: UInt)
         ensures self.spec_serialize(v) matches Ok(s) ==> !is_high_8_bit_set!(s.last())
