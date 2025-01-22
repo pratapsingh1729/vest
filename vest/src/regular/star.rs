@@ -242,7 +242,7 @@ impl<I, O, C> Combinator<I, O> for Star<C> where
     }
 
     #[verifier::external_body]
-    fn serialize(&self, mut vs: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, mut vs: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
@@ -254,7 +254,7 @@ impl<I, O, C> Combinator<I, O> for Star<C> where
             if pos > usize::MAX - len || pos + len > data.len() {
                 return Err(SerializeError::InsufficientBuffer);
             }
-            match self.0.serialize(vs.0.remove(0), data, pos + len) {
+            match self.0.serialize(&vs.0.remove(0), data, pos + len) {
                 Ok(n) => {
                     if let Some(next_len) = len.checked_add(n) {
                         len = next_len;

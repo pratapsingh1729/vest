@@ -67,7 +67,7 @@ impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for Success {
         Ok((0, ()))
     }
 
-    fn serialize(&self, _v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, _v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

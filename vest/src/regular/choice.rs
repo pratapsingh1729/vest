@@ -194,7 +194,7 @@ impl<I, O, Fst, Snd> Combinator<I, O> for OrdChoice<Fst, Snd> where
         )
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
@@ -382,12 +382,12 @@ impl<I, O, T> Combinator<I, O> for Opt<T> where
         self.0.serialize_requires() && self.0@.is_productive()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
-        match v.0 {
-            Some(v) => self.0.serialize(v, data, pos),
+        match &(*v).0 {
+            Some(v) => self.0.serialize(&v, data, pos),
             None => {
                 if pos <= data.len() {
                     assert(seq_splice(old(data)@, pos, Seq::<u8>::empty()) == data@);

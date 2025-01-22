@@ -443,7 +443,7 @@ impl<'a> Combinator<&'a [u8], Vec<u8>> for BtcVarint {
         btc_varint_inner().parse(s)
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut Vec<u8>, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut Vec<u8>, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

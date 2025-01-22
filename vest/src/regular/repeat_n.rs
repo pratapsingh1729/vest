@@ -384,7 +384,7 @@ impl<I, O, C> Combinator<I, O> for RepeatN<C> where
         self.0.serialize_requires() && C::V::is_prefix_secure()
     }
 
-    fn serialize(&self, mut vs: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, mut vs: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
@@ -420,7 +420,7 @@ impl<I, O, C> Combinator<I, O> for RepeatN<C> where
             if pos > usize::MAX - len || pos + len > data.len() {
                 return Err(SerializeError::InsufficientBuffer);
             }
-            match self.0.serialize(vs.0.remove(0), data, pos + len) {
+            match self.0.serialize(&vs.0.remove(0), data, pos + len) {
                 Ok(n) => {
                     if let Some(next_len) = len.checked_add(n) {
                         len = next_len;

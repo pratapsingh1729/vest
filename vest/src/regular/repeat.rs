@@ -231,7 +231,7 @@ impl<C> Repeat<C> where  {
             assert(data@ =~= seq_splice(old(data)@, pos, seq![]));
             return Ok(len);
         }
-        let n1 = self.0.serialize(v.0.remove(0), data, pos + len)?;
+        let n1 = self.0.serialize(&v.0.remove(0), data, pos + len)?;
 
         assert(v@ =~= old(v)@.drop_first());
 
@@ -282,7 +282,7 @@ impl<I, O, C> Combinator<I, O> for Repeat<C> where
         &&& self.0@.is_productive()
     }
 
-    fn serialize(&self, mut v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, mut v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

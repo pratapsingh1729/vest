@@ -66,7 +66,7 @@ impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for Fail {
         Err(ParseError::Other(self.0.clone()))
     }
 
-    fn serialize(&self, _v: Self::Type, _data: &mut O, _pos: usize) -> (res: Result<
+    fn serialize(&self, _v: &Self::Type, _data: &mut O, _pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

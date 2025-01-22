@@ -140,8 +140,8 @@ impl<I, O, Inner, T> Combinator<I, O> for Tag<Inner, T> where
         self.0.serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
-        self.0.serialize(self.0.predicate.0, data, pos)
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
+        self.0.serialize(&self.0.predicate.0, data, pos)
     }
 }
 

@@ -136,7 +136,7 @@ impl<I, O, Inner, P> Combinator<I, O> for Refined<Inner, P> where
         self.inner.serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
         if self.predicate.apply(&v) {
             self.inner.serialize(v, data, pos)
         } else {

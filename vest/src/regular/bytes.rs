@@ -111,7 +111,7 @@ impl<I, O> Combinator<I, O> for Bytes where I: VestInput, O: VestOutput<I> {
         }
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

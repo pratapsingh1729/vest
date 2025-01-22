@@ -269,14 +269,14 @@ impl<I, O, Fst, Snd, C> Combinator<I, O> for Depend<I, O, Fst, Snd, C> where
         &&& forall|i, snd| self.snd.ensures(i, snd) ==> snd.serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
         let snd = self.snd.apply(&v.0);
-        let n = self.fst.serialize(v.0, data, pos)?;
+        let n = self.fst.serialize(&v.0, data, pos)?;
         if n <= usize::MAX - pos && n + pos <= data.len() {
-            let m = snd.serialize(v.1, data, pos + n)?;
+            let m = snd.serialize(&v.1, data, pos + n)?;
             if let Some(nm) = n.checked_add(m) {
                 assert(data@.subrange(pos as int, pos + n + m as int) == self@.spec_serialize(
                     v@,

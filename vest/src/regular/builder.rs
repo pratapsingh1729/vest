@@ -123,7 +123,7 @@ impl<I, T> Combinator<I, Vec<u8>> for BuilderCombinator<T> where
         }
     }
 
-    fn serialize(&self, v: (), data: &mut Vec<u8>, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &(), data: &mut Vec<u8>, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

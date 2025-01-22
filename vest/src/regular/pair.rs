@@ -110,13 +110,13 @@ impl<Fst, Snd, I, O> Combinator<I, O> for (Fst, Snd) where
         self.0.serialize_requires() && self.1.serialize_requires() && Fst::V::is_prefix_secure()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
-        let n = self.0.serialize(v.0, data, pos)?;
+        let n = self.0.serialize(&v.0, data, pos)?;
         if n <= usize::MAX - pos && n + pos <= data.len() {
-            let m = self.1.serialize(v.1, data, pos + n)?;
+            let m = self.1.serialize(&v.1, data, pos + n)?;
             if m <= usize::MAX - n {
                 assert(data@.subrange(pos as int, pos + n + m as int) == self@.spec_serialize(
                     v@,

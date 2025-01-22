@@ -201,11 +201,11 @@ impl<I, O, Inner, M> Combinator<I, O> for Mapped<Inner, M> where
         self.inner.serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
-        self.inner.serialize(M::rev_apply(v), data, pos)
+        self.inner.serialize(&M::rev_apply(*v), data, pos)
     }
 }
 
@@ -428,12 +428,12 @@ impl<I, O, Inner, M> Combinator<I, O> for TryMap<Inner, M> where
         self.inner.serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
-        match M::rev_apply(v) {
-            Ok(v) => self.inner.serialize(v, data, pos),
+        match M::rev_apply(*v) {
+            Ok(v) => self.inner.serialize(&v, data, pos),
             Err(_) => Err(SerializeError::TryMapFailed),
         }
     }
@@ -578,7 +578,7 @@ fn serialize_field_less(msg: FieldLess, data: &mut Vec<u8>, pos: usize) -> (o: R
             &&& n == buf.len() && data@ == seq_splice(old(data)@, pos, buf)
         },
 {
-    <_ as Combinator<&[u8], Vec<u8>>>::serialize(&field_less(), msg, data, pos)
+    <_ as Combinator<&[u8], Vec<u8>>>::serialize(&field_less(), &msg, data, pos)
 }
 
 // non-exhaustive enum

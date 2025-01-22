@@ -105,11 +105,11 @@ impl<I, O, Fst, Snd> Combinator<I, O> for Terminated<Fst, Snd> where
         (&self.0, &self.1).serialize_requires()
     }
 
-    fn serialize<'b>(&self, v: Self::Type, data: &'b mut O, pos: usize) -> Result<
+    fn serialize<'b>(&self, v: &Self::Type, data: &'b mut O, pos: usize) -> Result<
         usize,
         SerializeError,
     > {
-        (&self.0, &self.1).serialize((v, ()), data, pos)
+        (&self.0, &self.1).serialize(&(*v, ()), data, pos)
     }
 }
 

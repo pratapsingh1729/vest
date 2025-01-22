@@ -128,7 +128,7 @@ impl<I, O, Next: Combinator<I, O>> Combinator<I, O> for AndThen<Bytes, Next> whe
         self.1.serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> Result<usize, SerializeError> {
         let n = self.1.serialize(v, data, pos)?;
         if n == self.0.0 {
             Ok(n)

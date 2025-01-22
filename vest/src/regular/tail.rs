@@ -75,7 +75,7 @@ impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for Tail {
         Ok(((s.len()), s))
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

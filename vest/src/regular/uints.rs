@@ -189,7 +189,7 @@ macro_rules! impl_combinator_for_le_uint_type {
                     }
                 }
 
-                fn serialize(&self, v: $int_type, data: &mut O, pos: usize) -> (res: Result<usize, SerializeError>) {
+                fn serialize(&self, v: &$int_type, data: &mut O, pos: usize) -> (res: Result<usize, SerializeError>) {
                     if pos <= data.len() {
                         if size_of::<$int_type>() <= data.len() - pos {
                             $int_type::ex_to_le_bytes(&v, data, pos);
@@ -294,7 +294,7 @@ macro_rules! impl_combinator_for_be_uint_type {
                     }
                 }
 
-                fn serialize(&self, v: $int_type, data: &mut O, pos: usize) -> (res: Result<usize, SerializeError>) {
+                fn serialize(&self, v: &$int_type, data: &mut O, pos: usize) -> (res: Result<usize, SerializeError>) {
                     if pos <= data.len() {
                         if size_of::<$int_type>() <= data.len() - pos {
                             $int_type::ex_to_be_bytes(&v, data, pos);
@@ -1117,11 +1117,11 @@ impl Combinator<&[u8], Vec<u8>> for U24Le {
         Ok((n, u24([bytes[2], bytes[1], bytes[0]])))
     }
 
-    fn serialize(&self, v: u24, data: &mut Vec<u8>, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &u24, data: &mut Vec<u8>, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
-        BytesN::<3>.serialize([v.0[2], v.0[1], v.0[0]].as_slice(), data, pos)
+        BytesN::<3>.serialize(&[v.0[2], v.0[1], v.0[0]].as_slice(), data, pos)
     }
 }
 
@@ -1222,11 +1222,11 @@ impl Combinator<&[u8], Vec<u8>> for U24Be {
         Ok((n, u24([bytes[0], bytes[1], bytes[2]])))
     }
 
-    fn serialize(&self, v: u24, data: &mut Vec<u8>, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &u24, data: &mut Vec<u8>, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
-        BytesN::<3>.serialize(v.0.as_slice(), data, pos)
+        BytesN::<3>.serialize(&v.0.as_slice(), data, pos)
     }
 }
 

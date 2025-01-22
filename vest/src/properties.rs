@@ -225,7 +225,7 @@ pub trait Combinator<I, O>: View where
     /// seialize "in-place" on a "sufficiently large" buffer with a pointer `pos` for efficiency.
     /// This means it's not neccessarily the case that when `serialize` fails, `spec_serialize`
     /// will also fail.
-    fn serialize(&self, v: Self::Type, buf: &mut O, pos: usize) -> (res: SResult<
+    fn serialize(&self, v: &Self::Type, buf: &mut O, pos: usize) -> (res: SResult<
         usize,
         SerializeError,
     >)
@@ -310,7 +310,7 @@ impl<I, O, C: Combinator<I, O>> Combinator<I, O> for &C where
         (*self).serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
@@ -387,7 +387,7 @@ impl<I, O, C: Combinator<I, O>> Combinator<I, O> for Box<C> where
         (**self).serialize_requires()
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {

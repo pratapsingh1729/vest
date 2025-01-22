@@ -87,7 +87,7 @@ impl<const N: usize, I, O> Combinator<I, O> for BytesN<N> where I: VestInput, O:
         }
     }
 
-    fn serialize(&self, v: Self::Type, data: &mut O, pos: usize) -> (res: Result<
+    fn serialize(&self, v: &Self::Type, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
     >) {
