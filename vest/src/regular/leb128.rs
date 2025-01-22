@@ -323,6 +323,21 @@ impl SecureSpecCombinator for UnsignedLEB128 {
         if Self::is_prefix_secure() {
             if let Ok((n1, v1)) = self.spec_parse(s1) {
                 assert(n1 <= s1.len()) by { self.lemma_parse_length(s1) };
+                let s = s1 + s2;
+                if is_high_8_bit_set!(s1.first()) {
+                    self.lemma_prefix_secure(s1.drop_first(), s2);
+                    assert(self.spec_parse(s1.drop_first()) is Ok);
+                    // spec_parse(s1.drop_first()) is Ok ==> 
+                    //  spec_parse(s1.drop_first() + s2) == spec_parse(s1.drop_first())
+                    //  spec_parse(s.drop_first()) == spec_parse(s1.drop_first())
+                    assert(s.first() == s1.first());
+                    assert(s1 == seq![s1.first()] + s1.drop_first());
+                    assert(s == seq![s.first()] + s.drop_first());
+                    assert(s.drop_first() == s1.drop_first() + s2);
+                } else {
+                }
+
+/*
                 self.lemma_parse_high_8_bits_set_until_last(s1); 
                 assert(s1[n1-1] <= 0x80);
                 self.lemma_parse_productive(s1);
@@ -336,11 +351,12 @@ impl SecureSpecCombinator for UnsignedLEB128 {
                         assert(is_high_8_bit_set!(s_n1_minus_1));
                         assert(s[n1-1] > 0x80);
                     });
+                    assume(n2 == n1);
                 } else {
                     // should be unreachable
                     assume(false);
                 }
-                assume(false);
+*/
 
 /*
                 let s1_0 = s1[0];
