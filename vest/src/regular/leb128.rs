@@ -184,6 +184,119 @@ impl UnsignedLEB128 {
         }
     }
 
+    spec fn spec_parse_rev_helper(&self, s: Seq<u8>, i: usize, acc: UInt) -> Result<(usize, UInt), ()>
+        decreases s.len() - i
+    {
+        if i >= s.len() || i == usize::MAX {
+            Err(())
+        } else {
+            let s_i = s[i as int];
+            let v = take_low_7_bits!(s_i);
+            let acc = acc | ((v as UInt) << (i * 7));
+            if !is_high_8_bit_set!(s_i) {
+                Ok(((s.len() - i) as usize, acc))
+            } else {
+                self.spec_parse_rev_helper(s, (i + 1) as usize, acc)
+            }
+        }
+    }
+
+    spec fn spec_parser_res_match(&self, p: Result<(usize, UInt), ()>, p_rev: Result<(usize, UInt), ()>, i: usize) -> bool {
+        match (p, p_rev) {
+            (Ok((c, v)), Ok((c_rev, v_rev))) => c == c_rev && v << (i * 7) == v_rev,
+            (Err(_), Err(_)) => true,
+            _ => false,
+        }
+    }
+
+    proof fn spec_parses_equiv(&self, s: Seq<u8>, i: usize)
+        requires
+            0 < i <= s.len() <= usize::MAX,
+            self.spec_parser_res_match(
+                self.spec_parse(s.skip(i as int)),
+                self.spec_parse_rev_helper(s, i, 0),
+                i,
+            ),
+            //self.spec_parse(s.skip(i as int)) == self.spec_parse_rev_helper(s, i, 0),
+        ensures
+            self.spec_parser_res_match(
+                self.spec_parse(s.skip((i - 1) as int)),
+                self.spec_parse_rev_helper(s, (i - 1) as usize, 0),
+                (i - 1) as usize,
+            ),
+            //self.spec_parse(s.skip(i as int - 1)) == self.spec_parse_rev_helper(s, (i - 1) as usize, 0),
+    {
+        let res = self.spec_parse(s.skip(i as int - 1));
+        let rev_res = self.spec_parse_rev_helper(s, (i - 1) as usize, 0);
+        if i == s.len() {
+            let s_tail = s.skip(i as int - 1);
+            assert(s_tail.len() == 1);
+            assert(s_tail.first() == s.last() == s[i - 1]);
+            if is_high_8_bit_set!(s_tail.first()) {
+                assert(s_tail.drop_first().len() == 0);
+                assert(self.spec_parse(s_tail.drop_first()) == Err::<(usize, u64),()>(()));
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == {
+                    let s_i = s[(i - 1) as usize as int];
+                    let v = take_low_7_bits!(s_i);
+                    let acc = 0 | ((v as UInt) << ((i - 1) as usize * 7));
+                    if !is_high_8_bit_set!(s_i) {
+                        Ok(((i - 1) as usize, acc))
+                    } else {
+                        self.spec_parse_rev_helper(s, ((i - 1) as usize + 1) as usize, acc)
+                    }
+                });
+                assert({
+                    let s_i = s[(i - 1) as usize as int];
+                    s_i == s[i-1]
+                });
+                assert({
+                    let s_i = s[(i - 1) as usize as int];
+                    let v = take_low_7_bits!(s_i);
+                    is_high_8_bit_set!(s_i)
+                });
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) ==
+                        self.spec_parse_rev_helper(s, i, 0));
+                assert(self.spec_parse_rev_helper(s, i, 0) == Err::<(usize, u64),()>(()));
+            } else {
+                assert(self.spec_parse(s.skip((i - 1) as int)) == Ok::<(usize, u64), ()>((1usize, take_low_7_bits!(s_tail.first()) as u64)));
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == 
+                        Ok::<(usize, u64), ()>(((s.len() - (i-1)) as usize, (0 | (take_low_7_bits!(s.last()) as u64) << (i - 1) * 7))));
+                let t = (take_low_7_bits!(s.last()) as u64) << ((i - 1) * 7);
+                assert(0 | t == t) by (bit_vector);
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == 
+                        Ok::<(usize, u64), ()>((1usize, (take_low_7_bits!(s.last()) as u64) << (i - 1) * 7)));
+            }
+        } else {
+            assume(false);
+
+        }
+    }
+
+
+    proof fn spec_parses_equiv_iter(&self, s: Seq<u8>, i: usize)
+        requires
+            0 <= i <= s.len() <= usize::MAX,
+            self.spec_parser_res_match(
+                self.spec_parse(s.skip(i as int)),
+                self.spec_parse_rev_helper(s, i, 0),
+                i,
+            ),
+        ensures
+            self.spec_parser_res_match(
+                self.spec_parse(s),
+                self.spec_parse_rev_helper(s, 0, 0),
+                0,
+            ),
+        decreases i,
+    {
+        if i == 0 {
+            assert(s.skip(0) == s);
+        } else {
+            self.spec_parses_equiv(s, i);
+            self.spec_parses_equiv_iter(s, (i - 1) as usize);
+        }
+    }
+
     proof fn lemma_parse_high_8_bits_set_until_last(&self, s: Seq<u8>) 
         ensures self.spec_parse(s) matches Ok((n, v)) ==> {
             &&& forall |i: int| 0 <= i < n - 1 ==> is_high_8_bit_set!(s.spec_index(i))
@@ -405,56 +518,58 @@ impl<I,O> Combinator<I,O> for UnsignedLEB128
         true
     }
 
+//    fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
+//        self.exec_parse_rec_helper(ss.as_byte_slice())
+//    }
+
     fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
-        self.exec_parse_rec_helper(ss.as_byte_slice())
+        assume(false);
+        let s = ss.as_byte_slice();
+        let mut result: Self::Type = 0;
+        let mut shift = 0;
+        let mut i = 0;
+
+        if s.len() == 0 {
+            return Err(ParseError::UnexpectedEndOfInput);
+        }
+        let ghost spec_res = self.spec_parse(s@);
+
+        while i < s.len()
+            invariant 
+                s.len() != 0,
+                s@ == ss@,
+                shift == i * 7,
+                0 <= i < 10,
+                spec_res == self.spec_parse(s@),
+                // spec_res matches Ok((spec_res_n, spec_res_v)) ==> {
+                //     &&& i <= spec_res_n
+                //     &&& result == 
+                 
+                // }
+                self.spec_parse(s@.take(i as int)) matches Ok((j, spec_res)) ==> {
+                    &&& result == spec_res
+                    &&& j == i
+                }
+            decreases s.len() - i
+        {
+assume(false);
+//            proof { 
+//                self.lemma_spec_parse_length(s@);
+//                self.lemma_spec_parse_length_bound(s@);
+//            }
+//            proof { admit() };
+
+            let byte = s[i];
+            result |= (take_low_7_bits!(byte) as Self::Type) << shift;
+            shift += 7;
+            i += 1;
+            if !is_high_8_bit_set!(byte) {
+                return Ok((i, result));
+            }
+        }
+assume(false);
+        Err(ParseError::UnexpectedEndOfInput)
     }
-
-    // fn parse(&self, ss: I) -> (res: PResult<Self::Type, ParseError>) {
-    //     let s = ss.as_byte_slice();
-    //     let mut result: Self::Type = 0;
-    //     let mut shift = 0;
-    //     let mut i = 0;
-
-    //     if s.len() == 0 {
-    //         return Err(ParseError::UnexpectedEndOfInput);
-    //     }
-    //     let ghost spec_res = self.spec_parse(s@);
-    //     proof { admit() };
-
-    //     while i < s.len()
-    //         invariant 
-    //             s.len() != 0,
-    //             s@ == ss@,
-    //             shift == i * 7,
-    //             0 <= i < 10,
-    //             spec_res == self.spec_parse(s@),
-    //             // spec_res matches Ok((spec_res_n, spec_res_v)) ==> {
-    //             //     &&& i <= spec_res_n
-    //             //     &&& result == 
-                    
-    //             // }
-    //             self.spec_parse(s@.take(i as int)) matches Ok((j, spec_res)) ==> {
-    //                 &&& result == spec_res
-    //                 &&& j == i
-    //             }
-    //         decreases s.len() - i
-    //     {
-    //         proof { 
-    //             self.lemma_spec_parse_length(s@);
-    //             self.lemma_spec_parse_length_bound(s@);
-    //         }
-    //         proof { admit() };
-
-    //         let byte = s[i];
-    //         result |= (take_low_7_bits!(byte) as Self::Type) << shift;
-    //         shift += 7;
-    //         i += 1;
-    //         if !is_high_8_bit_set!(byte) {
-    //             return Ok((i, result));
-    //         }
-    //     }
-    //     Err(ParseError::UnexpectedEndOfInput)
-    // }
 
     open spec fn serialize_requires(&self) -> bool {
         true
