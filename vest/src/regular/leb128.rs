@@ -336,57 +336,6 @@ impl SecureSpecCombinator for UnsignedLEB128 {
                     assert(s.drop_first() == s1.drop_first() + s2);
                 } else {
                 }
-
-/*
-                self.lemma_parse_high_8_bits_set_until_last(s1); 
-                assert(s1[n1-1] <= 0x80);
-                self.lemma_parse_productive(s1);
-                let s = s1 + s2;
-                assert(s[n1-1] <= 0x80);
-
-                if let Ok((n2, v2)) = self.spec_parse(s) {
-                    assert_by_contradiction!(n2 <= n1, {
-                        self.lemma_parse_high_8_bits_set_until_last(s);
-                        let s_n1_minus_1 = s[n1-1];
-                        assert(is_high_8_bit_set!(s_n1_minus_1));
-                        assert(s[n1-1] > 0x80);
-                    });
-                    assume(n2 == n1);
-                } else {
-                    // should be unreachable
-                    assume(false);
-                }
-*/
-
-/*
-                let s1_0 = s1[0];
-                if n1 == 1 {
-                    // assert(!is_high_8_bit_set!(s0));
-                    if (is_high_8_bit_set!(s1_0)) {
-                        assert(self.spec_parse(s1.drop_first()) matches Ok((n1_1, _)) && n1_1 == 0);
-                        self.lemma_parse_productive(s1.drop_first());
-                        assert(false);
-                    }
-                    assume(false);
-                } else {
-                    // assert(is_high_8_bit_set!(s0));
-                    // self.lemma_parse_high_8_bits_set_until_last(s.drop_first());
-                    self.lemma_prefix_secure(s1.drop_first(), s2);
-                    assert_seqs_equal!(s1 == seq![s1_0] + s1.drop_first());
-                }
-
-                assume(false);
-                self.lemma_parse_high_8_bits_set_until_last(s1);
-                assert(!(s1[n1-1] as u8 >= 0x80));
-                if let Ok((n2, v2)) = self.spec_parse(s1.add(s2)) {
-                    assert(n1 <= n2);
-                } else {
-                    assume(false);
-                    // should be unreachable
-                    assert(false);
-                }
-                admit();
-*/
             }
         }
     }
