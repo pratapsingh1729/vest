@@ -355,6 +355,7 @@ impl SecureSpecCombinator for UnsignedLEB128 {
 
 
     proof fn lemma_parse_length(&self, s: Seq<u8>)
+        ensures self.spec_parse(s) matches Ok((n, v)) ==> n <= s.len()
         decreases s.len()
     {
         if s.len() != 0 {
@@ -391,14 +392,27 @@ impl SecureSpecCombinator for UnsignedLEB128 {
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) 
+        decreases buf.len()
     {
         if let Ok((n,v)) = self.spec_parse(buf) {
             assert(buf.len() != 0);
-            if is_high_8_bit_set!(buf.first()) {
-                assume(false);
-                // self.lemma_parse_high_8_bits_set_until_last(buf);
+            let first = buf.first();
+            if is_high_8_bit_set!(first) {
+                let tail = buf.drop_first();
+                if let Ok((n2, v2)) = self.spec_parse(tail) {
+                    assert(n2 <= tail.len()) by { self.lemma_parse_length(tail) };
+                    self.theorem_parse_serialize_roundtrip(tail);
+                    assert(take_low_7_bits!(v) == take_low_7_bits!(first)) by (bit_vector) 
+                        requires v == v2 << 7 | (take_low_7_bits!(first)) as UInt;
+                    let lo = take_low_7_bits!(v);
+                    assert(v >> 7 == v2) by (bit_vector) 
+                        requires v == v2 << 7 | (take_low_7_bits!(first)) as UInt, 0 < v2 <= n_bit_max_unsigned!(8 * uint_size!() - 7);
+                    assert(set_high_8_bit!(lo) == first) by (bit_vector)
+                        requires take_low_7_bits!(first) == take_low_7_bits!(v), lo == take_low_7_bits!(v), is_high_8_bit_set!(first);
+                    assert_seqs_equal!(buf.take(n as int) == (seq![first] + tail).take(n as int));
+                    assert_seqs_equal!((seq![first] + tail).take(n as int) == seq![first] + tail.take(n2 as int));
+                }
             } else {
-                let first = buf.first();
                 assert(first == take_low_7_bits!(first)) by (bit_vector) requires !is_high_8_bit_set!(first);
                 assert(take_low_7_bits!(first) >> 7 == 0) by (bit_vector);
                 assert(take_low_7_bits!(first) == take_low_7_bits!(take_low_7_bits!(first))) by (bit_vector);
