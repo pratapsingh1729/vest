@@ -177,6 +177,18 @@ pub open spec fn seq_splice(data: Seq<u8>, pos: usize, v: Seq<u8>) -> Seq<u8>
     data.take(pos as int) + v + data.skip(pos + v.len() as int)
 }
 
+// Proof that splicing `v2` after splicing `v1` into `data` is the same as splicing `v1 + v2` into `data`.
+pub proof fn lemma_seq_splice_stack(data: Seq<u8>, pos: usize, v1: Seq<u8>, v2: Seq<u8>) 
+    requires 
+        pos + v1.len() + v2.len() <= data.len() <= usize::MAX,
+    ensures
+        seq_splice(data, pos, v1 + v2) == seq_splice(seq_splice(data, pos, v1), (pos + v1.len()) as usize, v2),
+{
+    let ghost data1 = seq_splice(data, pos, v1);
+    assert(data1.take(pos + v1.len()) + v2 + data1.skip(pos + v1.len() + v2.len()) == seq_splice(data1, (pos + v1.len()) as usize, v2));
+    assert(data1.take(pos + v1.len()) + v2 + data1.skip(pos + v1.len() + v2.len()) == seq_splice(data, pos, v1 + v2));
+}
+
 /// Wraps Rust's `Vec::extend_from_slice`.
 #[verifier::external_body]
 pub fn vec_u8_extend_from_slice(dest: &mut Vec<u8>, src: &[u8])

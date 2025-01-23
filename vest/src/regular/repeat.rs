@@ -1,5 +1,6 @@
 use crate::properties::*;
 use vstd::prelude::*;
+use vstd::assert_seqs_equal;
 
 verus! {
 
@@ -244,6 +245,75 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for Repeat<C, '_> {
 //     }
 // }
 // }
+
+impl<C: SecureSpecCombinator> Repeat<C, '_> {
+    // proof fn lemma_partial_serialize(&self, v: <Self as SpecCombinator>::Type, i: usize) 
+    //     requires 
+    //         0 <= i <= v.len(),
+    //     ensures
+    //         self.spec_serialize(v) matches Ok(b_full) ==> {
+    //             &&& self.spec_serialize(v.take(i as int)) matches Ok(b_front)
+    //             &&& b_front.len() <= b_full.len()
+    //             &&& b_full.take(b_front.len() as int) == b_front
+    //         }
+    // {
+    //     admit();
+    //     // if i == 0 {
+    //     //     assert(self.spec_serialize(v.0.take(0)) matches Ok(b) ==> b.len() == 0);
+    //     // } else {
+    //     //     let ghost b = self.spec_serialize(v.0.take(i as int)).unwrap();
+    //     //     let ghost b_full = self.spec_serialize(v).unwrap();
+    //     //     assert(b.len() <= b_full.len());
+    //     //     assert(b_full.take(b.len() as int) == b);
+    //     // }
+    // }
+
+    proof fn lemma_serialize_append(&self, v: <Self as SpecCombinator>::Type, i: usize) 
+        requires 
+            0 <= i < v.len(),
+        ensures
+            self.spec_serialize(v.take(i as int)) matches Ok(b) ==>
+            self.0.spec_serialize(v[i as int]) matches Ok(b_i) ==> {
+                &&& self.spec_serialize(v.take((i + 1) as int)) matches Ok(b_with_i) 
+                &&& b_with_i == b + b_i
+            }
+        decreases v.len()
+    {
+        if v.len() != 0 && i > 0 {
+            match self.0.spec_serialize(v.take(i as int)[0]) {
+                Ok(b) => {
+                    match self.spec_serialize(v.take(i as int).drop_first()) {
+                        Ok(b_tail) => {
+                            assert(v.take(i as int).drop_first() == v.drop_first().take((i - 1) as int));
+                        },
+                        Err(..) => {},
+                    }
+                },
+                Err(..) => {},
+            }
+        }
+    }
+    
+
+    // spec fn serialize_correct(
+    //     &self,
+    //     v: Seq<C::Type>,
+    //     n: usize,
+    //     data: Seq<u8>,
+    //     old_data: Seq<u8>,
+    //     pos: usize,
+    //     res: Result<usize, SerializeError>,
+    // ) -> bool {
+    //     &&& data.len() == old_data.len()
+    //     &&& res matches Ok(m) ==> {
+    //         &&& self.spec_serialize(v) is Ok
+    //         &&& self.spec_serialize(v) matches Ok(b) ==> {
+    //             m == b.len() && data == seq_splice(old_data, pos, b)
+    //         }
+    //     }
+    // }
+}
+
 impl<I, O, C, 'x> Combinator<I, O> for Repeat<C, 'x> where
     I: VestInput,
     O: VestOutput<I>,
@@ -321,7 +391,6 @@ impl<I, O, C, 'x> Combinator<I, O> for Repeat<C, 'x> where
         &&& self.0@.is_productive()
     }
 
-    #[verifier::external_body]
     fn serialize(&self, mut vs: Self::SType, data: &mut O, pos: usize) -> (res: Result<
         usize,
         SerializeError,
@@ -334,33 +403,45 @@ impl<I, O, C, 'x> Combinator<I, O> for Repeat<C, 'x> where
             return Err(SerializeError::InsufficientBuffer);
         }
         let ghost old_data = data@;
-        let ghost old_vs = vs@;
         assert(data@ == seq_splice(old_data, pos, seq![]));
+
+        // assert(self@.spec_serialize(vs@) matches Ok(b) ==> b.take(len as int) == Seq::<u8>::empty());
+        // assert(self@.spec_serialize(vs@) matches Ok(b) ==> seq_splice(old_data, pos, b.take(len as int)) == old_data);
+        
+        // assert(self@.spec_serialize(vs@) matches Ok(b) ==> {
+        //     &&& 0 <= len <= b.len()
+        //     &&& data@ == seq_splice(old_data, pos, b.take(len as int))
+        // });
 
         while i < cnt
             invariant
                 0 <= i <= cnt,
                 vs@.len() == cnt,
                 data@.len() == old(data)@.len(),
+                old(data)@ == old_data,
                 self.serialize_requires(),
-                self@.spec_serialize(vs@) matches Ok(b) && b.len() == len && data@ == seq_splice(
-                    old_data,
-                    pos,
-                    b,
-                ),
-        // res matches Ok(n) ==> {
-        //     &&& self@.spec_serialize(v@) matches Ok(b)
-        //     &&& b.len() == n
-        //     &&& buf@ == seq_splice(old(buf)@, pos, b)
-        // },
-        // self@.serialize_correct(
-        //     vs@.take(i as int),
-        //     i,
-        //     data@,
-        //     old_data,
-        //     pos,
-        //     Ok::<_, SerializeError>(len),
-        // ),
+                // self@.spec_serialize(vs@) matches Ok(b) ==> {
+                //     &&& 0 <= len <= b.len()
+                //     &&& data@ == seq_splice(old_data, pos, b.take(len as int))
+                // },     
+                ({
+                    &&& self@.spec_serialize(vs@.take(i as int)) matches Ok(b) 
+                    &&& b.len() == len 
+                    &&& data@ == seq_splice(old_data, pos, b)
+                }),
+            // res matches Ok(n) ==> {
+            //     &&& self@.spec_serialize(v@) matches Ok(b)
+            //     &&& b.len() == n
+            //     &&& buf@ == seq_splice(old(buf)@, pos, b)
+            // },
+            // self@.serialize_correct(
+            //     vs@.take(i as int),
+            //     i,
+            //     data@,
+            //     old_data,
+            //     pos,
+            //     Ok::<_, SerializeError>(len),
+            // ),
         {
             if pos > usize::MAX - len || pos + len > data.len() {
                 return Err(SerializeError::InsufficientBuffer);
@@ -368,15 +449,52 @@ impl<I, O, C, 'x> Combinator<I, O> for Repeat<C, 'x> where
             match self.0.serialize(vs.0[i], data, pos + len) {
                 // match self.0.serialize(vs.0.remove(0), data, pos + len) {
                 Ok(n) => {
+                    assert(old_data.len() <= usize::MAX);
+                    assert(pos + len + n <= old_data.len());
                     assert(n > 0) by {
                         self.0@.lemma_serialize_productive(vs@[i as int]);
                     }
+                    assert(self.0@.spec_serialize(vs@[i as int]) matches Ok(b_i) && b_i.len() == n);
+                    assert({
+                        &&& self@.spec_serialize(vs@.take(i as int)) matches Ok(b) 
+                        &&& b.len() == len
+                        &&& self.0@.spec_serialize(vs@[i as int]) matches Ok(b_i)
+                        &&& data@ == seq_splice(seq_splice(old_data, pos, b), (pos + len) as usize, b_i)
+                    });
+                    proof {
+                        let ghost b = self@.spec_serialize(vs@.take(i as int)).unwrap();
+                        let ghost b_i = self.0@.spec_serialize(vs@[i as int]).unwrap();
+                        assert(b.len() == len);
+                        assert(b_i.len() == n);
+                        assert(pos + len + n <= old_data.len());
+                        lemma_seq_splice_stack(old_data, pos, b, b_i);
+                        assert(
+                            seq_splice(seq_splice(old_data, pos, b), (pos + len) as usize, b_i)
+                            ==
+                            seq_splice(old_data, pos, b + b_i)
+                        );
+                        assert(data@ == seq_splice(old_data, pos, b + b_i));
+                        let b_with_i = self@.spec_serialize(vs@.take((i + 1) as int)).unwrap();
+                        self@.lemma_serialize_append(vs@, i);
+                        assert(b_with_i == b + b_i);
+                        assert(data@ == seq_splice(old_data, pos, b_with_i));
+                    }
+                                        
                     if let Some(next_len) = len.checked_add(n) {
                         len = next_len;
                         i += 1;
-                        assert(vs@.take(i as int).drop_last() == vs@.take((i - 1) as int));  // <-- key
-                        let ghost spec_bytes = self@.spec_serialize(vs@.take(i as int));
-                        assert(data@ == seq_splice(old_data, pos, spec_bytes.unwrap()));
+                        
+                        // assert(vs@.take(i as int).drop_last() == vs@.take((i - 1) as int));  // <-- key
+                        // let ghost spec_bytes = self@.spec_serialize(vs@.take(i as int));
+                        // assert(data@ == seq_splice(old_data, pos, spec_bytes.unwrap()));
+                        // assert(
+                        //     self@.spec_serialize(vs@) matches Ok(b_full) ==> {
+                        //         &&& self@.spec_serialize(vs@.take(i as int)) matches Ok(b_front)
+                        //         &&& data@ == seq_splice(old_data, pos, b_front)
+                        //         &&& data@ == seq_splice(old_data, pos, b_full.take(b_front.len() as int))
+                        //     }
+                        // )
+
                     } else {
                         return Err(SerializeError::SizeOverflow);
                     }
