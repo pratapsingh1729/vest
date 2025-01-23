@@ -267,8 +267,40 @@ impl UnsignedLEB128 {
                         Ok::<(usize, u64), ()>((1usize, (take_low_7_bits!(s.last()) as u64) << (i - 1) * 7)));
             }
         } else {
-            assume(false);
-
+            let s_tail = s.skip(i as int - 1);
+            assert(s_tail.first() == s[i - 1]);
+            if is_high_8_bit_set!(s_tail.first()) {
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == {
+                    let s_i = s[(i - 1) as usize as int];
+                    let v = take_low_7_bits!(s_i);
+                    let acc = 0 | ((v as UInt) << ((i - 1) as usize * 7));
+                    if !is_high_8_bit_set!(s_i) {
+                        Ok(((i - 1) as usize, acc))
+                    } else {
+                        self.spec_parse_rev_helper(s, ((i - 1) as usize + 1) as usize, acc)
+                    }
+                });
+                assert({
+                    let s_i = s[(i - 1) as usize as int];
+                    s_i == s[i-1]
+                });
+                assert({
+                    let s_i = s[(i - 1) as usize as int];
+                    let v = take_low_7_bits!(s_i);
+                    is_high_8_bit_set!(s_i)
+                });
+                assume(false);
+            } else {
+                let s_i_minus_1 = s[i - 1];
+                assert(self.spec_parse(s.skip((i - 1) as int)) == Ok::<(usize, u64), ()>((1usize, take_low_7_bits!(s_tail.first()) as u64)));
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == 
+                        Ok::<(usize, u64), ()>(((s.len() - (i-1)) as usize, (0 | (take_low_7_bits!(s_i_minus_1) as u64) << (i - 1) * 7))));
+                let t = (take_low_7_bits!(s_i_minus_1) as u64) << ((i - 1) * 7);
+                assert(0 | t == t) by (bit_vector);
+                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == 
+                        Ok::<(usize, u64), ()>(((s.len() - (i - 1)) as usize, (take_low_7_bits!(s_i_minus_1) as u64) << (i - 1) * 7)));
+                assume(false);
+            }
         }
     }
 
