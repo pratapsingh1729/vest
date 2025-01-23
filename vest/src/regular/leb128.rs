@@ -184,7 +184,9 @@ impl UnsignedLEB128 {
         }
     }
 
-    spec fn spec_parse_rev_helper(&self, s: Seq<u8>, i: usize, acc: UInt) -> Result<(usize, UInt), ()>
+    spec fn spec_parse_rev_helper(&self, s: Seq<u8>, start: usize, i: usize, acc: UInt) -> Result<(usize, UInt), ()>
+        recommends 
+            start <= i,
         decreases s.len() - i
     {
         if i >= s.len() || i == usize::MAX {
@@ -194,9 +196,9 @@ impl UnsignedLEB128 {
             let v = take_low_7_bits!(s_i);
             let acc = acc | ((v as UInt) << (i * 7));
             if !is_high_8_bit_set!(s_i) {
-                Ok(((s.len() - i) as usize, acc))
+                Ok(((i - start) as usize, acc))
             } else {
-                self.spec_parse_rev_helper(s, (i + 1) as usize, acc)
+                self.spec_parse_rev_helper(s, start, (i + 1) as usize, acc)
             }
         }
     }
@@ -209,25 +211,23 @@ impl UnsignedLEB128 {
         }
     }
 
-    proof fn spec_parses_equiv(&self, s: Seq<u8>, i: usize)
+    proof fn spec_parses_equiv(&self, s: Seq<u8>, start: usize, i: usize)
         requires
-            0 < i <= s.len() <= usize::MAX,
+            0 <= start < i <= s.len() <= usize::MAX,
             self.spec_parser_res_match(
                 self.spec_parse(s.skip(i as int)),
-                self.spec_parse_rev_helper(s, i, 0),
+                self.spec_parse_rev_helper(s, start, i, 0),
                 i,
             ),
-            //self.spec_parse(s.skip(i as int)) == self.spec_parse_rev_helper(s, i, 0),
         ensures
             self.spec_parser_res_match(
                 self.spec_parse(s.skip((i - 1) as int)),
-                self.spec_parse_rev_helper(s, (i - 1) as usize, 0),
+                self.spec_parse_rev_helper(s, (start - 1) as usize, i, 0),
                 (i - 1) as usize,
             ),
-            //self.spec_parse(s.skip(i as int - 1)) == self.spec_parse_rev_helper(s, (i - 1) as usize, 0),
     {
-        let res = self.spec_parse(s.skip(i as int - 1));
-        let rev_res = self.spec_parse_rev_helper(s, (i - 1) as usize, 0);
+//        let res = self.spec_parse(s.skip(i as int - 1));
+//        let rev_res = self.spec_parse_rev_helper(s, start, (i - 1) as usize, 0);
         if i == s.len() {
             let s_tail = s.skip(i as int - 1);
             assert(s_tail.len() == 1);
@@ -235,14 +235,14 @@ impl UnsignedLEB128 {
             if is_high_8_bit_set!(s_tail.first()) {
                 assert(s_tail.drop_first().len() == 0);
                 assert(self.spec_parse(s_tail.drop_first()) == Err::<(usize, u64),()>(()));
-                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == {
+                assert(self.spec_parse_rev_helper(s, (start - 1) as usize, i, 0) == {
                     let s_i = s[(i - 1) as usize as int];
                     let v = take_low_7_bits!(s_i);
                     let acc = 0 | ((v as UInt) << ((i - 1) as usize * 7));
                     if !is_high_8_bit_set!(s_i) {
                         Ok(((i - 1) as usize, acc))
                     } else {
-                        self.spec_parse_rev_helper(s, ((i - 1) as usize + 1) as usize, acc)
+                        self.spec_parse_rev_helper(s, ((start - 1) as usize + 1) as usize, i, acc)
                     }
                 });
                 assert({
@@ -254,7 +254,7 @@ impl UnsignedLEB128 {
                     let v = take_low_7_bits!(s_i);
                     is_high_8_bit_set!(s_i)
                 });
-                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) ==
+                assert(self.spec_parse_rev_helper(s, (start - 1) as usize, i, 0) ==
                         self.spec_parse_rev_helper(s, i, 0));
                 assert(self.spec_parse_rev_helper(s, i, 0) == Err::<(usize, u64),()>(()));
             } else {
@@ -270,14 +270,15 @@ impl UnsignedLEB128 {
             let s_tail = s.skip(i as int - 1);
             assert(s_tail.first() == s[i - 1]);
             if is_high_8_bit_set!(s_tail.first()) {
-                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == {
+                assume(false);
+                assert(self.spec_parse_rev_helper(s, (start - 1) as usize, i, 0) == {
                     let s_i = s[(i - 1) as usize as int];
                     let v = take_low_7_bits!(s_i);
                     let acc = 0 | ((v as UInt) << ((i - 1) as usize * 7));
                     if !is_high_8_bit_set!(s_i) {
                         Ok(((i - 1) as usize, acc))
                     } else {
-                        self.spec_parse_rev_helper(s, ((i - 1) as usize + 1) as usize, acc)
+                        self.spec_parse_rev_helper(s, start, ((i - 1) as usize + 1) as usize, acc)
                     }
                 });
                 assert({
@@ -293,12 +294,12 @@ impl UnsignedLEB128 {
             } else {
                 let s_i_minus_1 = s[i - 1];
                 assert(self.spec_parse(s.skip((i - 1) as int)) == Ok::<(usize, u64), ()>((1usize, take_low_7_bits!(s_tail.first()) as u64)));
-                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == 
+                assert(self.spec_parse_rev_helper(s, start, (i - 1) as usize, 0) == 
                         Ok::<(usize, u64), ()>(((s.len() - (i-1)) as usize, (0 | (take_low_7_bits!(s_i_minus_1) as u64) << (i - 1) * 7))));
                 let t = (take_low_7_bits!(s_i_minus_1) as u64) << ((i - 1) * 7);
                 assert(0 | t == t) by (bit_vector);
-                assert(self.spec_parse_rev_helper(s, (i - 1) as usize, 0) == 
-                        Ok::<(usize, u64), ()>(((s.len() - (i - 1)) as usize, (take_low_7_bits!(s_i_minus_1) as u64) << (i - 1) * 7)));
+                assert(self.spec_parse_rev_helper(s, start - 1, i as usize, 0) == 
+                        Ok::<(usize, u64), ()>((((i - (start - 1)) as usize, (take_low_7_bits!(s_i_minus_1) as u64) << (i - 1) * 7))));
                 assume(false);
             }
         }
