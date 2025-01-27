@@ -273,23 +273,59 @@ impl<C: SecureSpecCombinator> Repeat<C, '_> {
             0 <= i < v.len(),
         ensures
             self.spec_serialize(v.take(i as int)) matches Ok(b) ==>
-            self.0.spec_serialize(v[i as int]) matches Ok(b_i) ==> {
+            self.0.spec_serialize(v[i as int]) matches Ok(b_i) ==>
+            b.len() + b_i.len() <= usize::MAX ==> {
                 &&& self.spec_serialize(v.take((i + 1) as int)) matches Ok(b_with_i) 
                 &&& b_with_i == b + b_i
             }
         decreases v.len()
     {
-        if v.len() != 0 && i > 0 {
-            match self.0.spec_serialize(v.take(i as int)[0]) {
-                Ok(b) => {
-                    match self.spec_serialize(v.take(i as int).drop_first()) {
-                        Ok(b_tail) => {
-                            assert(v.take(i as int).drop_first() == v.drop_first().take((i - 1) as int));
-                        },
-                        Err(..) => {},
+        if v.len() != 0 {
+            if i == 0 {
+                if let Ok(b) = self.spec_serialize(v.take(0)) {
+                    if let Ok(b_i) = self.0.spec_serialize(v[0]) {
+                        if let Ok(b_with_i) = self.spec_serialize(v.take(1)) {
+                            assert(v.take(1) == seq![v[0]]);
+                            assert(self.spec_serialize(v.take(1).drop_first()).unwrap() == Seq::<u8>::empty());
+                            assert(self.spec_serialize(v.take(1)) == self.0.spec_serialize(v[0]));
+                            assert(b == Seq::<u8>::empty());
+                            assert(b_with_i == b_i);
+                            assert(b_with_i == b + b_i);
+                        }
                     }
-                },
-                Err(..) => {},
+                }
+            } else {
+                match self.0.spec_serialize(v.take(i as int)[0]) {
+                    Ok(b) => {
+                        match self.spec_serialize(v.take(i as int).drop_first()) {
+                            Ok(b_tail) => {
+                                if b.len() != 0 && b.len() + b_tail.len() <= usize::MAX {
+                                    assert(v.take(i as int).drop_first() == v.drop_first().take((i - 1) as int));
+                                    assert(v.take((i + 1) as int).drop_first() == v.drop_first().take(i as int));
+                                    assert(v.drop_first()[i - 1] == v[i as int]);
+                                    self.lemma_serialize_append(v.drop_first(), (i - 1) as usize);
+                                    if let Ok(b_tail_with_i) = self.spec_serialize(v.drop_first().take(i as int)) {
+                                        if let Ok(b_tail_i) = self.0.spec_serialize(v.drop_first()[i - 1]) {
+                                            if b_tail.len() + b_tail_i.len() <= usize::MAX {
+                                                assert(b_tail_with_i == b_tail + b_tail_i);
+                                            } else {
+                                                assert(self.spec_serialize(v.drop_first().take(i as int)) is Err);
+                                            }
+                                        }
+                                    } else {
+                                        assert(self.spec_serialize(v.take((i + 1) as int).drop_first()) is Err);
+                                        assert(self.spec_serialize(v.take(i + 1)) is Err);
+                                    }
+                                    // let b_tail_i = self.0.spec_serialize(v.take((i + 1) as int).drop_first()[i as int]).unwrap();
+                                    // let b_tail_with_i = self.spec_serialize(v.take((i + 1) as int).drop_first()).unwrap();
+                                    // assert(b_tail_with_i == b_tail + b_tail_i);
+                                }
+                            },
+                            Err(..) => {},
+                        }
+                    },
+                    Err(..) => {},
+                }
             }
         }
     }

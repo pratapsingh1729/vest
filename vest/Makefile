@@ -1,5 +1,5 @@
 all:
-	verus --crate-type=lib src/lib.rs --multiple-errors 5 --compile --export vest.verusdata
+	verus --crate-type=lib src/lib.rs --multiple-errors 5 --compile --export vest.verusdata --expand-errors
 
 clean:
 	rm vest.verusdata
