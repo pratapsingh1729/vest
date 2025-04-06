@@ -250,7 +250,7 @@ impl<I, O, Fst, Snd, C> Combinator<I, O> for Pair<I, O, Fst, Snd, C> where
         &&& forall|i, snd| self.snd.ensures(i, snd) ==> snd.parse_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         let (n, v1) = self.fst.parse(s.clone())?;
         let s_ = s.subrange(n, s.len());
         let snd = self.snd.apply(&v1);
@@ -382,7 +382,7 @@ impl<Fst, Snd, I, O> Combinator<I, O> for (Fst, Snd) where
         self.0.parse_requires() && self.1.parse_requires() && Fst::V::is_prefix_secure()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         let (n, v1) = self.0.parse(s.clone())?;
         let s_ = s.subrange(n, s.len());
         let (m, v2) = self.1.parse(s_)?;
@@ -512,7 +512,7 @@ impl<I, O, Fst, Snd> Combinator<I, O> for Preceded<Fst, Snd> where
         (&self.0, &self.1).parse_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> Result<(usize, Self::Type), ParseError> {
         let (n, ((), v)) = (&self.0, &self.1).parse(s.clone())?;
         Ok((n, v))
     }
@@ -622,7 +622,7 @@ impl<I, O, Fst, Snd> Combinator<I, O> for Terminated<Fst, Snd> where
         (&self.0, &self.1).parse_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> Result<(usize, Self::Type), ParseError> {
         let (n, (v, ())) = (&self.0, &self.1).parse(s.clone())?;
         Ok((n, v))
     }

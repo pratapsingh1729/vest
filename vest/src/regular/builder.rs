@@ -97,8 +97,7 @@ impl<T: Builder> SecureSpecCombinator for BuilderCombinator<T> {
     }
 }
 
-impl<I, T> Combinator<I, Vec<u8>> for BuilderCombinator<T> where
-    I: VestPublicInput,
+impl<T> Combinator<&[u8], Vec<u8>> for BuilderCombinator<T> where
     T: Builder + View,
  {
     type Type = ();
@@ -111,12 +110,12 @@ impl<I, T> Combinator<I, Vec<u8>> for BuilderCombinator<T> where
         None
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, ()), ParseError>) {
+    fn parse(&self, s: &[u8], Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, ()), ParseError>) {
         let v = self.0.into_vec();
         proof {
             self.0.value_wf();
         }
-        if compare_slice(s.as_byte_slice(), v.as_slice()) {
+        if compare_slice(s, v.as_slice()) {
             Ok((s.len(), ()))
         } else {
             Err(ParseError::BuilderError)

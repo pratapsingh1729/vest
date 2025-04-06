@@ -198,9 +198,11 @@ pub trait Combinator<I, O>: View where
     /// ## Post-conditions
     /// Essentially, the implementation of `parse` is functionally correct with respect to the
     /// specification `spec_parse` in both `Ok` and `Err` cases.
-    fn parse(&self, s: I) -> (res: PResult<Self::Type, ParseError>)
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: PResult<Self::Type, ParseError>)
         requires
             self.parse_requires(),
+            t.combinator == self@,
+            t.buffer == s@,
         ensures
             res matches Ok((n, v)) ==> self@.spec_parse(s@) == Ok::<_, ()>((n, v@)) && n
                 <= s@.len(),
@@ -302,8 +304,8 @@ impl<I, O, C: Combinator<I, O>> Combinator<I, O> for &C where
         (*self).parse_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
-        (*self).parse(s)
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
+        (*self).parse(s, Tracked(t))
     }
 
     open spec fn serialize_requires(&self) -> bool {
@@ -379,8 +381,8 @@ impl<I, O, C: Combinator<I, O>> Combinator<I, O> for Box<C> where
         (**self).parse_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
-        (**self).parse(s)
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
+        (**self).parse(s, Tracked(t))
     }
 
     open spec fn serialize_requires(&self) -> bool {

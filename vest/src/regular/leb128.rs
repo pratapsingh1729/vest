@@ -272,7 +272,7 @@ impl UnsignedLEB128 {
     }
 
     fn exec_serialize_rec_helper<I,O>(&self, v: UInt, buf: &mut O, pos: usize) -> (res: SResult<usize, SerializeError>)
-        where I:VestPublicInput, O:VestPublicOutput<I>
+        where I:VestInput, O:VestOutput<I>
         ensures
             buf@.len() == old(buf)@.len(),
             res matches Ok(n) ==> {
@@ -408,7 +408,7 @@ impl SecureSpecCombinator for UnsignedLEB128 {
 }
 
 impl<I,O> Combinator<I,O> for UnsignedLEB128 
-    where I: VestPublicInput, O: VestPublicOutput<I>
+    where I: VestInput, O: VestOutput<I>
 {
     type Type = UInt;
 

@@ -176,7 +176,7 @@ impl<I, O, Fst, Snd> Combinator<I, O> for Choice<Fst, Snd> where
         self.0.parse_requires() && self.1.parse_requires() && self@.1.disjoint_from(&self@.0)
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         if let Ok((n, v)) = self.0.parse(s.clone()) {
             Ok((n, Either::Left(v)))
         } else {
@@ -370,7 +370,7 @@ impl<I, O, T> Combinator<I, O> for Opt<T> where
         self.0.parse_requires() && self.0@.is_productive()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         if let Ok((n, v)) = self.0.parse(s) {
             Ok((n, Optional(Some(v))))
         } else {

@@ -63,7 +63,7 @@ impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for Success {
         Some(0)
     }
 
-    fn parse(&self, _s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, _s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         Ok((0, ()))
     }
 

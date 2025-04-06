@@ -40,6 +40,15 @@ impl View for U8 {
     }
 }
 
+impl U8 {
+    /// Declassification axiom for U8
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 1,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
+}
+
 /// Combinator for parsing and serializing unsigned u16 integers in little-endian byte order.
 pub struct U16Le;
 
@@ -49,6 +58,15 @@ impl View for U16Le {
     open spec fn view(&self) -> Self::V {
         *self
     }
+}
+
+impl U16Le {
+    /// Declassification axiom for U16Le
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 2,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
 }
 
 /// Combinator for parsing and serializing unsigned u32 integers in little-endian byte order.
@@ -62,6 +80,15 @@ impl View for U32Le {
     }
 }
 
+impl U32Le {
+    /// Declassification axiom for U32Le
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 4,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
+}
+
 /// Combinator for parsing and serializing unsigned u64 integers in little-endian byte order.
 pub struct U64Le;
 
@@ -71,6 +98,15 @@ impl View for U64Le {
     open spec fn view(&self) -> Self::V {
         *self
     }
+}
+
+impl U64Le {
+    /// Declassification axiom for U64Le
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 8,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
 }
 
 /// Combinator for parsing and serializing unsigned u16 integers in big-endian byte order.
@@ -84,6 +120,16 @@ impl View for U16Be {
     }
 }
 
+impl U16Be {
+    /// Declassification axiom for U16Be
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 2,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
+}
+
+
 /// Combinator for parsing and serializing unsigned u32 integers in big-endian byte order.
 pub struct U32Be;
 
@@ -95,6 +141,16 @@ impl View for U32Be {
     }
 }
 
+impl U32Be {
+    /// Declassification axiom for U32Be
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 4,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
+}
+
+
 /// Combinator for parsing and serializing unsigned u64 integers in big-endian byte order.
 pub struct U64Be;
 
@@ -104,6 +160,15 @@ impl View for U64Be {
     open spec fn view(&self) -> Self::V {
         *self
     }
+}
+
+impl U64Be {
+    /// Declassification axiom for U64Be
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 8,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
 }
 
 macro_rules! impl_combinator_for_le_uint_type {
@@ -160,7 +225,7 @@ macro_rules! impl_combinator_for_le_uint_type {
                 }
             }
 
-            impl<I: VestPublicInput, O: VestPublicOutput<I>> Combinator<I, O> for $combinator {
+            impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for $combinator {
                 type Type = $int_type;
 
                 open spec fn spec_length(&self) -> Option<usize> {
@@ -171,10 +236,11 @@ macro_rules! impl_combinator_for_le_uint_type {
                     Some(size_of::<$int_type>())
                 }
 
-                fn parse(&self, s: I) -> (res: Result<(usize, $int_type), ParseError>) {
+                fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, $int_type), ParseError>) {
                     if s.len() >= size_of::<$int_type>() {
                         let s_ = s.subrange(0, size_of::<$int_type>());
-                        let v = $int_type::ex_from_le_bytes(s_.as_byte_slice());
+                        let tracked declassify_token = t.declassify();
+                        let v = $int_type::ex_from_le_bytes(s_.declassify_n_bytes(size_of::<$int_type>(), Tracked(declassify_token)));
                         proof {
                             let s_ = s_@;
                             let s__ = s@.subrange(size_of::<$int_type>() as int, s@.len() as int);
@@ -265,7 +331,7 @@ macro_rules! impl_combinator_for_be_uint_type {
                 }
             }
 
-            impl<I: VestPublicInput, O: VestPublicOutput<I>> Combinator<I, O> for $combinator {
+            impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for $combinator {
                 type Type = $int_type;
 
                 open spec fn spec_length(&self) -> Option<usize> {
@@ -276,10 +342,11 @@ macro_rules! impl_combinator_for_be_uint_type {
                     Some(size_of::<$int_type>())
                 }
 
-                fn parse(&self, s: I) -> (res: Result<(usize, $int_type), ParseError>) {
+                fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, $int_type), ParseError>) {
                     if s.len() >= size_of::<$int_type>() {
                         let s_ = s.subrange(0, size_of::<$int_type>());
-                        let v = $int_type::ex_from_be_bytes(s_.as_byte_slice());
+                        let tracked declassify_token = t.declassify();
+                        let v = $int_type::ex_from_be_bytes(s_.declassify_n_bytes(size_of::<$int_type>(), Tracked(declassify_token)));
                         proof {
                             let s_ = s_@;
                             let s__ = s@.subrange(size_of::<$int_type>() as int, s@.len() as int);
@@ -411,8 +478,8 @@ pub trait FromToBytes where Self: ViewReflex + std::marker::Sized + Copy {
 
     /// Converts an integer to a sequence of bytes in little-endian byte order.
     fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
 
         requires
             old(s)@.len() - pos >= size_of::<Self>(),
@@ -432,8 +499,8 @@ pub trait FromToBytes where Self: ViewReflex + std::marker::Sized + Copy {
 
     /// Converts an integer to a sequence of bytes in big-endian byte order.
     fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
 
         requires
             old(s)@.len() - pos >= size_of::<Self>(),
@@ -496,8 +563,8 @@ impl FromToBytes for u8 {
     }
 
     fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let ghost old = s@;
         s.set_byte(pos, *self);
@@ -511,8 +578,8 @@ impl FromToBytes for u8 {
     }
 
     fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let ghost old = s@;
         s.set_byte(pos, *self);
@@ -595,8 +662,8 @@ impl FromToBytes for u16 {
 
     #[verifier::external_body]
     fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let bytes = self.to_le_bytes();
         // s[pos..pos + 2].copy_from_slice(&bytes);
@@ -613,8 +680,8 @@ impl FromToBytes for u16 {
 
     #[verifier::external_body]
     fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let bytes = self.to_be_bytes();
         // s[pos..pos + 2].copy_from_slice(&bytes);
@@ -721,8 +788,8 @@ impl FromToBytes for u32 {
 
     #[verifier::external_body]
     fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let bytes = self.to_le_bytes();
         // s[pos..pos + 4].copy_from_slice(&bytes);
@@ -741,8 +808,8 @@ impl FromToBytes for u32 {
 
     #[verifier::external_body]
     fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let bytes = self.to_be_bytes();
         // s[pos..pos + 4].copy_from_slice(&bytes);
@@ -885,8 +952,8 @@ impl FromToBytes for u64 {
 
     #[verifier::external_body]
     fn ex_to_le_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let bytes = self.to_le_bytes();
         // s[pos..pos + 8].copy_from_slice(&bytes);
@@ -909,8 +976,8 @@ impl FromToBytes for u64 {
 
     #[verifier::external_body]
     fn ex_to_be_bytes<I, O>(&self, s: &mut O, pos: usize) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
      {
         let bytes = self.to_be_bytes();
         // s[pos..pos + 8].copy_from_slice(&bytes);
@@ -1036,6 +1103,16 @@ impl View for U24Le {
     }
 }
 
+impl U24Le {
+    /// Declassification axiom for U24Le
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 3,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
+}
+
+
 impl SpecCombinator for U24Le {
     type Type = u24;
 
@@ -1112,8 +1189,8 @@ impl Combinator<&[u8], Vec<u8>> for U24Le {
         Some(3)
     }
 
-    fn parse(&self, s: &[u8]) -> (res: Result<(usize, u24), ParseError>) {
-        let (n, bytes) = <_ as Combinator<&[u8], Vec<u8>>>::parse(&Fixed::<3>, s)?;
+    fn parse(&self, s: &[u8], Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, u24), ParseError>) {
+        let (n, bytes) = <_ as Combinator<&[u8], Vec<u8>>>::parse(&Fixed::<3>, s, Tracked(t))?;
         Ok((n, u24([bytes[2], bytes[1], bytes[0]])))
     }
 
@@ -1135,6 +1212,16 @@ impl View for U24Be {
         *self
     }
 }
+
+impl U24Be {
+    /// Declassification axiom for U24Be
+    #[verifier::external_body]
+    pub proof fn declassify(Tracked(t): Tracked<CombinatorToken<Self>>) -> (tracked dt: Tracked<ByteDeclassifyToken>)
+        ensures dt.num_bytes() == 3,
+                dt.buffer() == t.buffer
+    { unimplemented!() }    
+}
+
 
 impl SpecCombinator for U24Be {
     type Type = u24;
@@ -1217,8 +1304,8 @@ impl Combinator<&[u8], Vec<u8>> for U24Be {
         Some(3)
     }
 
-    fn parse(&self, s: &[u8]) -> (res: Result<(usize, u24), ParseError>) {
-        let (n, bytes) = <_ as Combinator<&[u8], Vec<u8>>>::parse(&Fixed::<3>, s)?;
+    fn parse(&self, s: &[u8], Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, u24), ParseError>) {
+        let (n, bytes) = <_ as Combinator<&[u8], Vec<u8>>>::parse(&Fixed::<3>, s, Tracked(t))?;
         Ok((n, u24([bytes[0], bytes[1], bytes[2]])))
     }
 

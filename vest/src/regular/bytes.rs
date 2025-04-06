@@ -27,8 +27,8 @@ impl Variable {
         Variable,
         Next,
     >) where
-        I: VestPublicInput,
-        O: VestPublicOutput<I>,
+        I: VestInput,
+        O: VestOutput<I>,
         Next::V: SecureSpecCombinator<Type = <Next::Type as View>::V>,
 
         ensures
@@ -102,7 +102,7 @@ impl<I, O> Combinator<I, O> for Variable where I: VestInput, O: VestOutput<I> {
         Some(self.0)
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         if self.0 <= s.len() {
             let s_ = s.subrange(0, self.0);
             Ok((self.0, s_))
@@ -202,7 +202,7 @@ impl<const N: usize, I, O> Combinator<I, O> for Fixed<N> where I: VestInput, O: 
         Some(N)
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         if N <= s.len() {
             let s_ = s.subrange(0, N);
             Ok((N, s_))
@@ -293,7 +293,7 @@ impl<I: VestInput, O: VestOutput<I>> Combinator<I, O> for Tail {
         None
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         Ok(((s.len()), s))
     }
 

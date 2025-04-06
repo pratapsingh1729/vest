@@ -1,4 +1,5 @@
 pub use crate::utils::*;
+pub use crate::tokens::*;
 // use std::rc::Rc;
 use vstd::prelude::*;
 use vstd::slice::*;
@@ -33,21 +34,28 @@ pub trait VestInput: View<V = Seq<u8>> {
         ensures
             res@ == self@,
     ;
-}
 
-/// Trait for types that can be used as input for Vest parsers, roughly corresponding to byte buffers.
-/// `VestPublicInput` can be set using transparent bytes, so it cannot provide type abstraction for side-channel security.
-pub trait VestPublicInput: VestInput {
-    /// Returns a byte slice with the contents of the buffer
-    fn as_byte_slice(&self) -> (res: &[u8])
-        ensures
-            res@ == self@,
+    /// Declassify the first `n` bytes, with an appropriate token.
+    fn declassify_n_bytes<'a>(&'a self, n: usize, tracked token: Tracked<ByteDeclassifyToken>) -> (res: &'a [u8])
+        requires token.num_bytes() == n,
+                 0 <= n <= self@.len(),
+                 token.buffer() == self@,
+        ensures  res@ == self@.subrange(0, n as int)
     ;
 }
 
+// /// Trait for types that can be used as input for Vest parsers, roughly corresponding to byte buffers.
+// /// `VestPublicInput` can be set using transparent bytes, so it cannot provide type abstraction for side-channel security.
+// pub trait VestPublicInput: VestInput {
+//     /// Returns a byte slice with the contents of the buffer
+//     fn as_byte_slice(&self) -> (res: &[u8])
+//         ensures
+//             res@ == self@,
+//     ;
+// }
+
 /// Trait for types that can be used as output for Vest serializers.
-/// `VestOutput` does not expose the contents of the buffer, so opaque buffer types for side-channel
-/// security can implement `VestOutput`.
+/// VestOutput allows upcasting from transparent bytes where necessary via `set_byte` and `set_byte_range`
 pub trait VestOutput<I>: View<V = Seq<u8>> where I: View<V = Seq<u8>> {
     /// The length of the buffer.
     fn len(&self) -> (res: usize)
@@ -64,11 +72,7 @@ pub trait VestOutput<I>: View<V = Seq<u8>> where I: View<V = Seq<u8>> {
                 input@,
             ).add(old(self)@.subrange(i + input@.len(), self@.len() as int)),
     ;
-}
 
-/// Trait for types that can be used as output for Vest serializers.
-/// `VestPublicOutput` can be set using transparent bytes, so it cannot provide type abstraction for side-channel security.
-pub trait VestPublicOutput<I>: VestOutput<I> where I: View<V = Seq<u8>> {
     /// Set the byte at index `i` to `value`.
     fn set_byte(&mut self, i: usize, value: u8)
         requires
@@ -88,6 +92,28 @@ pub trait VestPublicOutput<I>: VestOutput<I> where I: View<V = Seq<u8>> {
     ;
 }
 
+// /// Trait for types that can be used as output for Vest serializers.
+// /// `VestPublicOutput` can be set using transparent bytes, so it cannot provide type abstraction for side-channel security.
+// pub trait VestPublicOutput<I>: VestOutput<I> where I: View<V = Seq<u8>> {
+//     /// Set the byte at index `i` to `value`.
+//     fn set_byte(&mut self, i: usize, value: u8)
+//         requires
+//             i < old(self)@.len(),
+//         ensures
+//             self@ == old(self)@.update(i as int, value),
+//     ;
+
+//     /// Copy `input` to `self` starting at index `i`. (Same as `set_range` but with byte slice input.)
+//     fn set_byte_range(&mut self, i: usize, input: &[u8]) -> (res: ())
+//         requires
+//             0 <= i + input@.len() <= old(self)@.len() <= usize::MAX,
+//         ensures
+//             self@.len() == old(self)@.len() && self@ == old(self)@.subrange(0, i as int).add(
+//                 input@,
+//             ).add(old(self)@.subrange(i + input@.len(), self@.len() as int)),
+//     ;
+// }
+
 //////////////////////////////////////////////////////////////////////////////
 /// Implementations for common types
 impl<'a> VestInput for &'a [u8] {
@@ -102,13 +128,17 @@ impl<'a> VestInput for &'a [u8] {
     fn clone(&self) -> &'a [u8] {
         *self
     }
-}
 
-impl<'a> VestPublicInput for &'a [u8] {
-    fn as_byte_slice(&self) -> &[u8] {
-        *self
+    fn declassify_n_bytes(&self, n: usize, tracked _token: Tracked<ByteDeclassifyToken>) -> &'a [u8] {
+        slice_subrange(*self, 0, n)
     }
 }
+
+// impl<'a> VestPublicInput for &'a [u8] {
+//     fn as_byte_slice(&self) -> &[u8] {
+//         *self
+//     }
+// }
 
 // /// Provided to demonstrate flexibility of the trait, but likely should not be used,
 // /// since this impl copies the `Vec` every time you call `subrange` or `clone`.
@@ -156,17 +186,15 @@ impl<'a> VestPublicInput for &'a [u8] {
 //         self.as_slice()
 //     }
 // }
-impl<I> VestOutput<I> for Vec<u8> where I: VestPublicInput {
+impl VestOutput<&[u8]> for Vec<u8> {
     fn len(&self) -> usize {
         Vec::len(self)
     }
 
-    fn set_range(&mut self, i: usize, input: &I) {
-        set_range(self, i, input.as_byte_slice());
+    fn set_range(&mut self, i: usize, input: &&[u8]) {
+        set_range(self, i, input);
     }
-}
 
-impl<I> VestPublicOutput<I> for Vec<u8> where I: VestPublicInput {
     fn set_byte(&mut self, i: usize, value: u8) {
         self.set(i, value);
     }
@@ -175,5 +203,15 @@ impl<I> VestPublicOutput<I> for Vec<u8> where I: VestPublicInput {
         set_range(self, i, input);
     }
 }
+
+// impl<I> VestPublicOutput<I> for Vec<u8> where I: VestPublicInput {
+//     fn set_byte(&mut self, i: usize, value: u8) {
+//         self.set(i, value);
+//     }
+
+//     fn set_byte_range(&mut self, i: usize, input: &[u8]) {
+//         set_range(self, i, input);
+//     }
+// }
 
 } // verus!

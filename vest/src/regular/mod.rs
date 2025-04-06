@@ -24,5 +24,5 @@ pub mod fail;
 pub mod success;
 /// Tag combinator
 pub mod tag;
-/// LEB128-encoded integers
-pub mod leb128;
+// /// LEB128-encoded integers
+// pub mod leb128;

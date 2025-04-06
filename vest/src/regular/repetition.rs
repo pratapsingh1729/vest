@@ -339,7 +339,7 @@ impl<I, O, C> Combinator<I, O> for RepeatN<C> where
         self.0.parse_requires() && C::V::is_prefix_secure()
     }
 
-    fn parse(&self, input: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, input: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         let (mut s, mut m, mut vs) = (input, 0usize, Vec::new());
         let mut i = 0usize;
         assert(RepeatResult(vs)@ =~= seq![]);
@@ -606,7 +606,7 @@ impl<C: SecureSpecCombinator> SecureSpecCombinator for Repeat<C> {
 impl<C> Repeat<C> where  {
     /// Helper function for parse()
     /// TODO: Recursion is not ideal, but hopefully tail call opt will kick in
-    fn parse_helper<I, O>(&self, s: I, res: &mut Vec<C::Type>) -> (r: Result<(), ParseError>) where
+    fn parse_helper<I, O>(&self, s: I, res: &mut Vec<C::Type>, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (r: Result<(), ParseError>) where
         I: VestInput,
         O: VestOutput<I>,
         C: Combinator<I, O>,
@@ -707,7 +707,7 @@ impl<I, O, C> Combinator<I, O> for Repeat<C> where
         &&& self.0@.is_productive()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         let mut res = Vec::new();
         self.parse_helper(s.clone(), &mut res)?;
         Ok((s.len(), RepeatResult(res)))
@@ -766,6 +766,7 @@ impl<C: SecureSpecCombinator> Star<C> {
         }
     }
 
+    /// Helper function for spec_serialize()
     pub closed spec fn spec_serialize_helper(&self, v: Seq<C::Type>, res: Seq<u8>) -> Result<
         Seq<u8>,
         (),
@@ -938,7 +939,7 @@ impl<I, O, C> Combinator<I, O> for Star<C> where
     }
 
     #[verifier::external_body]
-    fn parse(&self, mut input: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, mut input: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         let mut res = Vec::new();
         let mut consumed: usize = 0;
         loop {

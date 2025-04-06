@@ -131,7 +131,7 @@ impl<I, O, Inner, T> Combinator<I, O> for Tag<Inner, T> where
         self.0.parse_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> Result<(usize, Self::Type), ParseError> {
         let (n, _) = self.0.parse(s)?;
         Ok((n, ()))
     }

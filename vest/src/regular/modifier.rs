@@ -214,7 +214,7 @@ impl<I, O, Inner, M> Combinator<I, O> for Mapped<Inner, M> where
         self.inner.parse_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         match self.inner.parse(s) {
             Err(e) => Err(e),
             Ok((n, v)) => {
@@ -479,7 +479,7 @@ impl<I, O, Inner, M> Combinator<I, O> for TryMap<Inner, M> where
         self.inner.parse_requires()
     }
 
-    fn parse(&self, s: I) -> (res: Result<(usize, Self::Type), ParseError>) {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> (res: Result<(usize, Self::Type), ParseError>) {
         match self.inner.parse(s) {
             Err(e) => Err(e),
             Ok((n, v)) => match M::apply(v) {
@@ -631,11 +631,11 @@ spec fn serialize_spec_field_less(msg: FieldLess) -> Result<Seq<u8>, ()> {
     spec_field_less().spec_serialize(msg)
 }
 
-fn parse_field_less(i: &[u8]) -> (o: Result<(usize, FieldLess), ParseError>)
+fn parse_field_less(i: &[u8], Tracked(t): Tracked<CombinatorToken<TryMap<U8, FieldLessMapper>>>) -> (o: Result<(usize, FieldLess), ParseError>)
     ensures
         o matches Ok(r) ==> parse_spec_field_less(i@) matches Ok(r_) && r@ == r_,
 {
-    <_ as Combinator<&[u8], Vec<u8>>>::parse(&field_less(), i)
+    <_ as Combinator<&[u8], Vec<u8>>>::parse(&field_less(), i, Tracked(t))
 }
 
 fn serialize_field_less(msg: FieldLess, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
@@ -871,7 +871,7 @@ impl<I, O, Inner, P> Combinator<I, O> for Refined<Inner, P> where
         self.inner.parse_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> Result<(usize, Self::Type), ParseError> {
         match self.inner.parse(s) {
             Ok((n, v)) => if self.predicate.apply(&v) {
                 Ok((n, v))
@@ -994,7 +994,7 @@ impl<I: VestInput, O: VestOutput<I>, Inner: Combinator<I, O>> Combinator<I, O> f
         self.inner.parse_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> Result<(usize, Self::Type), ParseError> {
         if self.cond {
             self.inner.parse(s)
         } else {
@@ -1125,7 +1125,7 @@ impl<I, O, Next: Combinator<I, O>> Combinator<I, O> for AndThen<Variable, Next> 
         self.1.parse_requires()
     }
 
-    fn parse(&self, s: I) -> Result<(usize, Self::Type), ParseError> {
+    fn parse(&self, s: I, Tracked(t): Tracked<CombinatorToken<Self::V>>) -> Result<(usize, Self::Type), ParseError> {
         let (n, v1) = <_ as Combinator<I, O>>::parse(&self.0, s)?;
         let (m, v2) = self.1.parse(v1)?;
         if m == n {
