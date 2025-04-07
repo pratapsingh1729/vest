@@ -766,6 +766,7 @@ impl<C: SecureSpecCombinator> Star<C> {
         }
     }
 
+    /// Helper function for spec_serialize()
     pub closed spec fn spec_serialize_helper(&self, v: Seq<C::Type>, res: Seq<u8>) -> Result<
         Seq<u8>,
         (),

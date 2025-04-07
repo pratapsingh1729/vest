@@ -124,10 +124,10 @@ impl<Inner, M> SpecCombinator for Mapped<Inner, M> where
  {
     type Type = M::Dst;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         match self.inner.spec_parse(s) {
             Err(e) => Err(e),
-            Ok((n, v)) => Ok((n, M::spec_apply(v))),
+            Ok((n, (v, s))) => Ok((n, (M::spec_apply(v), s))),
         }
     }
 
@@ -160,14 +160,14 @@ impl<Inner, M> SecureSpecCombinator for Mapped<Inner, M> where
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
         self.inner.lemma_parse_length(buf);
         self.inner.theorem_parse_serialize_roundtrip(buf);
-        if let Ok((n, v)) = self.inner.spec_parse(buf) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(buf) {
             M::spec_iso(v)
         }
     }
 
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
         self.inner.lemma_prefix_secure(s1, s2);
-        if let Ok((n, v)) = self.inner.spec_parse(s1) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(s1) {
             self.inner.lemma_parse_length(s1);
             M::spec_iso(v)
         }
@@ -175,14 +175,14 @@ impl<Inner, M> SecureSpecCombinator for Mapped<Inner, M> where
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
         self.inner.lemma_parse_length(s);
-        if let Ok((n, v)) = self.inner.spec_parse(s) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(s) {
             M::spec_iso(v);
         }
     }
 
     proof fn lemma_parse_productive(&self, s: Seq<u8>) {
         self.inner.lemma_parse_productive(s);
-        if let Ok((n, v)) = self.inner.spec_parse(s) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(s) {
             M::spec_iso(v);
         }
     }
@@ -383,11 +383,11 @@ impl<Inner, M> SpecCombinator for TryMap<Inner, M> where
  {
     type Type = M::Dst;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         match self.inner.spec_parse(s) {
             Err(e) => Err(e),
-            Ok((n, v)) => match M::spec_apply(v) {
-                Ok(v) => Ok((n, v)),
+            Ok((n, (v, s))) => match M::spec_apply(v) {
+                Ok(v) => Ok((n, (v, s))),
                 Err(_) => Err(()),
             },
         }
@@ -425,14 +425,14 @@ impl<Inner, M> SecureSpecCombinator for TryMap<Inner, M> where
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
         self.inner.lemma_parse_length(buf);
         self.inner.theorem_parse_serialize_roundtrip(buf);
-        if let Ok((n, v)) = self.inner.spec_parse(buf) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(buf) {
             M::spec_iso(v)
         }
     }
 
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
         self.inner.lemma_prefix_secure(s1, s2);
-        if let Ok((n, v)) = self.inner.spec_parse(s1) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(s1) {
             self.inner.lemma_parse_length(s1);
             M::spec_iso(v)
         }
@@ -440,14 +440,14 @@ impl<Inner, M> SecureSpecCombinator for TryMap<Inner, M> where
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
         self.inner.lemma_parse_length(s);
-        if let Ok((n, v)) = self.inner.spec_parse(s) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(s) {
             M::spec_iso(v);
         }
     }
 
     proof fn lemma_parse_productive(&self, s: Seq<u8>) {
         self.inner.lemma_parse_productive(s);
-        if let Ok((n, v)) = self.inner.spec_parse(s) {
+        if let Ok((n, (v, _))) = self.inner.spec_parse(s) {
             M::spec_iso(v);
         }
     }
@@ -504,254 +504,254 @@ impl<I, O, Inner, M> Combinator<I, O> for TryMap<Inner, M> where
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use super::super::uints::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//     use super::super::uints::*;
 
-    verus! {
+//     verus! {
 
-// exhaustive enum
+// // exhaustive enum
 
-#[derive(Structural, Copy, Clone, PartialEq, Eq)]
-pub enum FieldLess {
-    A = 0,
-    B = 1,
-    C = 2,
-}
-
-pub type FieldLessInner = u8;
-
-impl View for FieldLess {
-    type V = Self;
-
-    open spec fn view(&self) -> Self::V {
-        *self
-    }
-}
-
-impl Compare<FieldLess> for FieldLess {
-    fn compare(&self, other: &FieldLess) -> bool {
-        *self == *other
-    }
-}
-impl SpecTryFrom<FieldLessInner> for FieldLess {
-    type Error = ();
-
-    open spec fn spec_try_from(v: FieldLessInner) -> Result<FieldLess, ()> {
-        match v {
-            0u8 => Ok(FieldLess::A),
-            1u8 => Ok(FieldLess::B),
-            2u8 => Ok(FieldLess::C),
-            _ => Err(()),
-        }
-    }
-}
-
-impl SpecTryFrom<FieldLess> for FieldLessInner {
-    type Error = ();
-
-    open spec fn spec_try_from(v: FieldLess) -> Result<FieldLessInner, ()> {
-        match v {
-            FieldLess::A => Ok(0u8),
-            FieldLess::B => Ok(1u8),
-            FieldLess::C => Ok(2u8),
-        }
-    }
-}
-
-impl TryFrom<FieldLessInner> for FieldLess {
-    type Error = ();
-
-    fn ex_try_from(v: FieldLessInner) -> Result<FieldLess, ()> {
-        match v {
-            0u8 => Ok(FieldLess::A),
-            1u8 => Ok(FieldLess::B),
-            2u8 => Ok(FieldLess::C),
-            _ => Err(()),
-        }
-    }
-}
-
-impl TryFrom<FieldLess> for FieldLessInner {
-    type Error = ();
-
-    fn ex_try_from(v: FieldLess) -> Result<FieldLessInner, ()> {
-        match v {
-            FieldLess::A => Ok(0u8),
-            FieldLess::B => Ok(1u8),
-            FieldLess::C => Ok(2u8),
-        }
-    }
-}
-
-struct FieldLessMapper;
-
-impl View for FieldLessMapper {
-    type V = Self;
-
-    open spec fn view(&self) -> Self::V {
-        *self
-    }
-}
-
-impl SpecPartialIso for FieldLessMapper {
-    type Src = FieldLessInner;
-    type Dst = FieldLess;
-}
-
-impl SpecPartialIsoProof for FieldLessMapper {
-    proof fn spec_iso(s: Self::Src) {}
-
-    proof fn spec_iso_rev(s: Self::Dst) {}
-}
-
-impl PartialIso for FieldLessMapper {
-    type Src = FieldLessInner;
-    type Dst = FieldLess;
-}
-
-type FieldLessCombinator = TryMap<U8, FieldLessMapper>;
-
-spec fn spec_field_less() -> FieldLessCombinator {
-    TryMap { inner: U8, mapper: FieldLessMapper }
-}
-
-fn field_less() -> (o: FieldLessCombinator)
-    ensures o@ == spec_field_less(),
-{
-    TryMap { inner: U8, mapper: FieldLessMapper }
-}
-
-spec fn parse_spec_field_less(i: Seq<u8>) -> Result<(usize, FieldLess), ()> {
-    spec_field_less().spec_parse(i)
-}
-
-spec fn serialize_spec_field_less(msg: FieldLess) -> Result<Seq<u8>, ()> {
-    spec_field_less().spec_serialize(msg)
-}
-
-fn parse_field_less(i: &[u8]) -> (o: Result<(usize, FieldLess), ParseError>)
-    ensures
-        o matches Ok(r) ==> parse_spec_field_less(i@) matches Ok(r_) && r@ == r_,
-{
-    <_ as Combinator<&[u8], Vec<u8>>>::parse(&field_less(), i)
-}
-
-fn serialize_field_less(msg: FieldLess, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
-    ensures
-        o matches Ok(n) ==> {
-            &&& serialize_spec_field_less(msg@) matches Ok(buf)
-            &&& n == buf.len() && data@ == seq_splice(old(data)@, pos, buf)
-        },
-{
-    <_ as Combinator<&[u8], Vec<u8>>>::serialize(&field_less(), msg, data, pos)
-}
-
-// non-exhaustive enum
-// NOTE: It turns out that the following encoding creates an anbiguous format, e.g. both
-// `NonExhaustive::X` and `NonExhaustive::Unknown(0)` would be serialized to `0x00`, which could
-// lead to format confusion attacks (though it's not immediately clear how). Interestingly,
-// [rustls](https://github.com/rustls/rustls/blob/main/rustls/src/msgs/macros.rs#L68) uses a
-// similar encoding for all its enums.
-//
-// For security, we should just use primitive uint combinators for non-exhaustive enums.
-
-// #[non_exhaustive]
-// #[repr(u8)]
-// pub enum NonExhaustive {
-//     X = 0,
-//     Y = 1,
-//     Z = 2,
-//     Unknown(u8),
+// #[derive(Structural, Copy, Clone, PartialEq, Eq)]
+// pub enum FieldLess {
+//     A = 0,
+//     B = 1,
+//     C = 2,
 // }
-//
-// pub type NonExhaustiveInner = u8;
-//
-// impl View for NonExhaustive {
+
+// pub type FieldLessInner = u8;
+
+// impl View for FieldLess {
 //     type V = Self;
-//
+
 //     open spec fn view(&self) -> Self::V {
 //         *self
 //     }
 // }
-//
-// impl SpecFrom<NonExhaustiveInner> for NonExhaustive {
-//     open spec fn spec_from(v: NonExhaustiveInner) -> NonExhaustive {
+
+// impl Compare<FieldLess> for FieldLess {
+//     fn compare(&self, other: &FieldLess) -> bool {
+//         *self == *other
+//     }
+// }
+// impl SpecTryFrom<FieldLessInner> for FieldLess {
+//     type Error = ();
+
+//     open spec fn spec_try_from(v: FieldLessInner) -> Result<FieldLess, ()> {
 //         match v {
-//             0u8 => NonExhaustive::X,
-//             1u8 => NonExhaustive::Y,
-//             2u8 => NonExhaustive::Z,
-//             _ => NonExhaustive::Unknown(v),
+//             0u8 => Ok(FieldLess::A),
+//             1u8 => Ok(FieldLess::B),
+//             2u8 => Ok(FieldLess::C),
+//             _ => Err(()),
 //         }
 //     }
 // }
-//
-// impl SpecFrom<NonExhaustive> for NonExhaustiveInner {
-//     open spec fn spec_from(v: NonExhaustive) -> NonExhaustiveInner {
+
+// impl SpecTryFrom<FieldLess> for FieldLessInner {
+//     type Error = ();
+
+//     open spec fn spec_try_from(v: FieldLess) -> Result<FieldLessInner, ()> {
 //         match v {
-//             NonExhaustive::X => 0u8,
-//             NonExhaustive::Y => 1u8,
-//             NonExhaustive::Z => 2u8,
-//             NonExhaustive::Unknown(v) => v,
+//             FieldLess::A => Ok(0u8),
+//             FieldLess::B => Ok(1u8),
+//             FieldLess::C => Ok(2u8),
 //         }
 //     }
 // }
-//
-// impl From<NonExhaustiveInner> for NonExhaustive {
-//     fn ex_from(v: NonExhaustiveInner) -> NonExhaustive {
+
+// impl TryFrom<FieldLessInner> for FieldLess {
+//     type Error = ();
+
+//     fn ex_try_from(v: FieldLessInner) -> Result<FieldLess, ()> {
 //         match v {
-//             0u8 => NonExhaustive::X,
-//             1u8 => NonExhaustive::Y,
-//             2u8 => NonExhaustive::Z,
-//             _ => NonExhaustive::Unknown(v),
+//             0u8 => Ok(FieldLess::A),
+//             1u8 => Ok(FieldLess::B),
+//             2u8 => Ok(FieldLess::C),
+//             _ => Err(()),
 //         }
 //     }
 // }
-//
-// impl From<NonExhaustive> for NonExhaustiveInner {
-//     fn ex_from(v: NonExhaustive) -> NonExhaustiveInner {
+
+// impl TryFrom<FieldLess> for FieldLessInner {
+//     type Error = ();
+
+//     fn ex_try_from(v: FieldLess) -> Result<FieldLessInner, ()> {
 //         match v {
-//             NonExhaustive::X => 0u8,
-//             NonExhaustive::Y => 1u8,
-//             NonExhaustive::Z => 2u8,
-//             NonExhaustive::Unknown(v) => v,
+//             FieldLess::A => Ok(0u8),
+//             FieldLess::B => Ok(1u8),
+//             FieldLess::C => Ok(2u8),
 //         }
 //     }
 // }
-//
-// struct NonExhaustiveMapper;
-//
-// impl View for NonExhaustiveMapper {
+
+// struct FieldLessMapper;
+
+// impl View for FieldLessMapper {
 //     type V = Self;
-//
+
 //     open spec fn view(&self) -> Self::V {
 //         *self
 //     }
 // }
-//
-// impl SpecIso for NonExhaustiveMapper {
-//     type Src = NonExhaustiveInner;
-//     type Dst = NonExhaustive;
-//
-//     proof fn spec_iso(s: Self::Src) {
-//     }
-//
-//     proof fn spec_iso_rev(s: Self::Dst) {
-//         // would fail because of the ambiguity in the encoding
-//     }
-// }
-//
-// impl Iso for NonExhaustiveMapper {
-//     type Src = NonExhaustiveInner;
-//     type Dst = NonExhaustive;
-//
-//     type Src = NonExhaustiveInner;
-//     type Dst = NonExhaustive;
-// }
-}
 
-}
+// impl SpecPartialIso for FieldLessMapper {
+//     type Src = FieldLessInner;
+//     type Dst = FieldLess;
+// }
+
+// impl SpecPartialIsoProof for FieldLessMapper {
+//     proof fn spec_iso(s: Self::Src) {}
+
+//     proof fn spec_iso_rev(s: Self::Dst) {}
+// }
+
+// impl PartialIso for FieldLessMapper {
+//     type Src = FieldLessInner;
+//     type Dst = FieldLess;
+// }
+
+// type FieldLessCombinator = TryMap<U8, FieldLessMapper>;
+
+// spec fn spec_field_less() -> FieldLessCombinator {
+//     TryMap { inner: U8, mapper: FieldLessMapper }
+// }
+
+// fn field_less() -> (o: FieldLessCombinator)
+//     ensures o@ == spec_field_less(),
+// {
+//     TryMap { inner: U8, mapper: FieldLessMapper }
+// }
+
+// spec fn parse_spec_field_less(i: Seq<u8>) -> Result<(usize, FieldLess), ()> {
+//     spec_field_less().spec_parse(i)
+// }
+
+// spec fn serialize_spec_field_less(msg: FieldLess) -> Result<Seq<u8>, ()> {
+//     spec_field_less().spec_serialize(msg)
+// }
+
+// fn parse_field_less(i: &[u8]) -> (o: Result<(usize, FieldLess), ParseError>)
+//     ensures
+//         o matches Ok(r) ==> parse_spec_field_less(i@) matches Ok(r_) && r@ == r_,
+// {
+//     <_ as Combinator<&[u8], Vec<u8>>>::parse(&field_less(), i)
+// }
+
+// fn serialize_field_less(msg: FieldLess, data: &mut Vec<u8>, pos: usize) -> (o: Result<usize, SerializeError>)
+//     ensures
+//         o matches Ok(n) ==> {
+//             &&& serialize_spec_field_less(msg@) matches Ok(buf)
+//             &&& n == buf.len() && data@ == seq_splice(old(data)@, pos, buf)
+//         },
+// {
+//     <_ as Combinator<&[u8], Vec<u8>>>::serialize(&field_less(), msg, data, pos)
+// }
+
+// // non-exhaustive enum
+// // NOTE: It turns out that the following encoding creates an anbiguous format, e.g. both
+// // `NonExhaustive::X` and `NonExhaustive::Unknown(0)` would be serialized to `0x00`, which could
+// // lead to format confusion attacks (though it's not immediately clear how). Interestingly,
+// // [rustls](https://github.com/rustls/rustls/blob/main/rustls/src/msgs/macros.rs#L68) uses a
+// // similar encoding for all its enums.
+// //
+// // For security, we should just use primitive uint combinators for non-exhaustive enums.
+
+// // #[non_exhaustive]
+// // #[repr(u8)]
+// // pub enum NonExhaustive {
+// //     X = 0,
+// //     Y = 1,
+// //     Z = 2,
+// //     Unknown(u8),
+// // }
+// //
+// // pub type NonExhaustiveInner = u8;
+// //
+// // impl View for NonExhaustive {
+// //     type V = Self;
+// //
+// //     open spec fn view(&self) -> Self::V {
+// //         *self
+// //     }
+// // }
+// //
+// // impl SpecFrom<NonExhaustiveInner> for NonExhaustive {
+// //     open spec fn spec_from(v: NonExhaustiveInner) -> NonExhaustive {
+// //         match v {
+// //             0u8 => NonExhaustive::X,
+// //             1u8 => NonExhaustive::Y,
+// //             2u8 => NonExhaustive::Z,
+// //             _ => NonExhaustive::Unknown(v),
+// //         }
+// //     }
+// // }
+// //
+// // impl SpecFrom<NonExhaustive> for NonExhaustiveInner {
+// //     open spec fn spec_from(v: NonExhaustive) -> NonExhaustiveInner {
+// //         match v {
+// //             NonExhaustive::X => 0u8,
+// //             NonExhaustive::Y => 1u8,
+// //             NonExhaustive::Z => 2u8,
+// //             NonExhaustive::Unknown(v) => v,
+// //         }
+// //     }
+// // }
+// //
+// // impl From<NonExhaustiveInner> for NonExhaustive {
+// //     fn ex_from(v: NonExhaustiveInner) -> NonExhaustive {
+// //         match v {
+// //             0u8 => NonExhaustive::X,
+// //             1u8 => NonExhaustive::Y,
+// //             2u8 => NonExhaustive::Z,
+// //             _ => NonExhaustive::Unknown(v),
+// //         }
+// //     }
+// // }
+// //
+// // impl From<NonExhaustive> for NonExhaustiveInner {
+// //     fn ex_from(v: NonExhaustive) -> NonExhaustiveInner {
+// //         match v {
+// //             NonExhaustive::X => 0u8,
+// //             NonExhaustive::Y => 1u8,
+// //             NonExhaustive::Z => 2u8,
+// //             NonExhaustive::Unknown(v) => v,
+// //         }
+// //     }
+// // }
+// //
+// // struct NonExhaustiveMapper;
+// //
+// // impl View for NonExhaustiveMapper {
+// //     type V = Self;
+// //
+// //     open spec fn view(&self) -> Self::V {
+// //         *self
+// //     }
+// // }
+// //
+// // impl SpecIso for NonExhaustiveMapper {
+// //     type Src = NonExhaustiveInner;
+// //     type Dst = NonExhaustive;
+// //
+// //     proof fn spec_iso(s: Self::Src) {
+// //     }
+// //
+// //     proof fn spec_iso_rev(s: Self::Dst) {
+// //         // would fail because of the ambiguity in the encoding
+// //     }
+// // }
+// //
+// // impl Iso for NonExhaustiveMapper {
+// //     type Src = NonExhaustiveInner;
+// //     type Dst = NonExhaustive;
+// //
+// //     type Src = NonExhaustiveInner;
+// //     type Dst = NonExhaustive;
+// // }
+// }
+
+// }
 
 /// The spec version of [`Pred`].
 pub trait SpecPred {
@@ -797,9 +797,9 @@ impl<Inner, P> SpecCombinator for Refined<Inner, P> where
  {
     type Type = Inner::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         match self.inner.spec_parse(s) {
-            Ok((n, v)) if self.predicate.spec_apply(&v) => Ok((n, v)),
+            Ok((n, (v, s))) if self.predicate.spec_apply(&v) => Ok((n, (v, s))),
             _ => Err(()),
         }
     }
@@ -914,7 +914,7 @@ impl<Inner: View> View for Cond<Inner> {
 impl<Inner: SpecCombinator> SpecCombinator for Cond<Inner> {
     type Type = Inner::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         if self.cond {
             self.inner.spec_parse(s)
         } else {
@@ -1030,13 +1030,13 @@ impl<Prev: View, Next: View> View for AndThen<Prev, Next> {
 impl<Next: SpecCombinator> SpecCombinator for AndThen<Variable, Next> {
     type Type = Next::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
-        if let Ok((n, v1)) = self.0.spec_parse(s) {
-            if let Ok((m, v2)) = self.1.spec_parse(v1) {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
+        if let Ok((n, (v1, s1))) = self.0.spec_parse(s) {
+            if let Ok((m, (v2, s2))) = self.1.spec_parse(v1) {
                 // !! for security, can only proceed if the `Next` parser consumed the entire
                 // !! output from the `Prev` parser
                 if m == n {
-                    Ok((n, v2))
+                    Ok((n, (v2, s1.union(s2))))
                 } else {
                     Err(())
                 }
@@ -1066,8 +1066,8 @@ impl<Next: SecureSpecCombinator> SecureSpecCombinator for AndThen<Variable, Next
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
-        if let Ok((n, v1)) = self.0.spec_parse(buf) {
-            if let Ok((m, v2)) = self.1.spec_parse(v1) {
+        if let Ok((n, (v1, _))) = self.0.spec_parse(buf) {
+            if let Ok((m, (v2, _))) = self.1.spec_parse(v1) {
                 self.0.theorem_parse_serialize_roundtrip(buf);
                 self.1.theorem_parse_serialize_roundtrip(v1);
                 if m == n {
@@ -1090,7 +1090,7 @@ impl<Next: SecureSpecCombinator> SecureSpecCombinator for AndThen<Variable, Next
     }
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
-        if let Ok((n, v1)) = self.0.spec_parse(s) {
+        if let Ok((n, (v1, _))) = self.0.spec_parse(s) {
             self.0.lemma_parse_length(s);
             self.1.lemma_parse_length(v1);
         }

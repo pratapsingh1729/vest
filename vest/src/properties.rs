@@ -18,7 +18,7 @@ pub trait SpecCombinator {
     type Type;
 
     /// The specification of [`Combinator::parse`].
-    spec fn spec_parse(&self, s: Seq<u8>) -> PResult<Self::Type, ()>;
+    spec fn spec_parse(&self, s: Seq<u8>) -> PResult<(Self::Type, Set<int>), ()>;
 
     /// The specification of [`Combinator::serialize`].
     spec fn spec_serialize(&self, v: Self::Type) -> SResult<Seq<u8>, ()>;
@@ -43,9 +43,11 @@ pub trait SecureSpecCombinator: SpecCombinator {
     ///   same value (can lead to format-confusion attacks if not satisfied).
     proof fn theorem_serialize_parse_roundtrip(&self, v: Self::Type)
         ensures
-            self.spec_serialize(v) matches Ok(b) ==> self.spec_parse(b) == Ok::<_, ()>(
-                (b.len() as usize, v),
-            ),
+            self.spec_serialize(v) matches Ok(b) ==> 
+                self.spec_parse(b) matches Ok((l, (v_, _))) && l == b.len() && v_ == v
+            // self.spec_serialize(v) matches Ok(b) ==> self.spec_parse(b) == Ok::<_, ()>(
+            //     (b.len() as usize, v),
+            // ),
     ;
 
     /// Followed from `theorem_serialize_parse_roundtrip`
@@ -53,7 +55,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
         requires
             self.spec_serialize(v) is Ok,
         ensures
-            exists|b: Seq<u8>| #[trigger] self.spec_parse(b) matches Ok((_, v_)) && v_ == v,
+            exists|b: Seq<u8>| #[trigger] self.spec_parse(b) matches Ok((_, (v_, _))) && v_ == v,
     {
         self.theorem_serialize_parse_roundtrip(v);
     }
@@ -95,7 +97,7 @@ pub trait SecureSpecCombinator: SpecCombinator {
         requires
             buf.len() <= usize::MAX,
         ensures
-            self.spec_parse(buf) matches Ok((n, v)) ==> self.spec_serialize(v) == Ok::<_, ()>(
+            self.spec_parse(buf) matches Ok((n, (v, _))) ==> self.spec_serialize(v) == Ok::<_, ()>(
                 buf.take(n as int),
             ),
     ;
@@ -202,9 +204,8 @@ pub trait Combinator<I, O>: View where
         requires
             self.parse_requires(),
         ensures
-            res matches Ok((n, v)) ==> self@.spec_parse(s@) == Ok::<_, ()>((n, v@)) && n
-                <= s@.len(),
-            self@.spec_parse(s@) matches Ok((m, w)) ==> res matches Ok((m, v)) && w == v@,
+            res matches Ok((n, v)) ==> self@.spec_parse(s@) matches Ok((n_, (v_, s_))) && n <= s@.len() && n_ == n && v_ == v@,
+            self@.spec_parse(s@) matches Ok((m, (w, _))) ==> res matches Ok((m, v)) && w == v@,
             res is Err ==> self@.spec_parse(s@) is Err,
             self@.spec_parse(s@) is Err ==> res is Err,
     ;
@@ -244,7 +245,7 @@ pub trait Combinator<I, O>: View where
 impl<C: SpecCombinator> SpecCombinator for &C {
     type Type = C::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         (*self).spec_parse(s)
     }
 
@@ -321,7 +322,7 @@ impl<I, O, C: Combinator<I, O>> Combinator<I, O> for &C where
 impl<C: SpecCombinator> SpecCombinator for Box<C> {
     type Type = C::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         (**self).spec_parse(s)
     }
 

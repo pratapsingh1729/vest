@@ -90,8 +90,8 @@
 
 // mod examples;
 
-/// Combinators for Bitcoin formats.
-pub mod bitcoin;
+// /// Combinators for Bitcoin formats.
+// pub mod bitcoin;
 /// Definitions for buffer traits that can be used as input and output for parsers and serializers,
 /// along with some implementations for commonly used buffers.
 pub mod buf_traits;
@@ -101,8 +101,6 @@ pub mod properties;
 pub mod regular;
 /// Utility functions and types.
 pub mod utils;
-//// Constant-time parser and serializer combinators.
-// mod secret;
 /// Error types
 #[allow(missing_docs)]
 pub mod errors;

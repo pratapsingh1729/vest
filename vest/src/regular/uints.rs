@@ -40,6 +40,13 @@ impl View for U8 {
     }
 }
 
+impl U8 {
+    /// Indices that are declassified to parse the U8
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0]
+    }
+}
+
 /// Combinator for parsing and serializing unsigned u16 integers in little-endian byte order.
 pub struct U16Le;
 
@@ -48,6 +55,13 @@ impl View for U16Le {
 
     open spec fn view(&self) -> Self::V {
         *self
+    }
+}
+
+impl U16Le {
+    /// Indices that are declassified to parse the U16Le
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1]
     }
 }
 
@@ -62,6 +76,13 @@ impl View for U32Le {
     }
 }
 
+impl U32Le {
+    /// Indices that are declassified to parse the U32Le
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1, 2, 3]
+    }
+}
+
 /// Combinator for parsing and serializing unsigned u64 integers in little-endian byte order.
 pub struct U64Le;
 
@@ -70,6 +91,13 @@ impl View for U64Le {
 
     open spec fn view(&self) -> Self::V {
         *self
+    }
+}
+
+impl U64Le {
+    /// Indices that are declassified to parse the U64Le
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1, 2, 3, 4, 5, 6, 7]
     }
 }
 
@@ -84,6 +112,13 @@ impl View for U16Be {
     }
 }
 
+impl U16Be {
+    /// Indices that are declassified to parse the U16Be
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1]
+    }
+}
+
 /// Combinator for parsing and serializing unsigned u32 integers in big-endian byte order.
 pub struct U32Be;
 
@@ -92,6 +127,13 @@ impl View for U32Be {
 
     open spec fn view(&self) -> Self::V {
         *self
+    }
+}
+
+impl U32Be {
+    /// Indices that are declassified to parse the U32Be
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1, 2, 3]
     }
 }
 
@@ -106,15 +148,22 @@ impl View for U64Be {
     }
 }
 
+impl U64Be {
+
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1, 2, 3, 4, 5, 6, 7]
+    }
+}
+
 macro_rules! impl_combinator_for_le_uint_type {
     ($combinator:ty, $int_type:ty) => {
         ::builtin_macros::verus! {
             impl SpecCombinator for $combinator {
                 type Type = $int_type;
 
-                open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, $int_type), ()> {
+                open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, ($int_type, Set<int>)), ()> {
                     if s.len() >= size_of::<$int_type>() {
-                        Ok((size_of::<$int_type>() as usize, <$int_type>::spec_from_le_bytes(s)))
+                        Ok((size_of::<$int_type>() as usize, (<$int_type>::spec_from_le_bytes(s), self.declassify_indices())))
                     } else {
                         Err(())
                     }
@@ -217,9 +266,9 @@ macro_rules! impl_combinator_for_be_uint_type {
             impl SpecCombinator for $combinator {
                 type Type = $int_type;
 
-                open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, $int_type), ()> {
+                open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, ($int_type, Set<int>)), ()> {
                     if s.len() >= size_of::<$int_type>() {
-                        Ok((size_of::<$int_type>() as usize, <$int_type>::spec_from_be_bytes(s)))
+                        Ok((size_of::<$int_type>() as usize, (<$int_type>::spec_from_be_bytes(s), self.declassify_indices())))
                     } else {
                         Err(())
                     }
@@ -1036,15 +1085,23 @@ impl View for U24Le {
     }
 }
 
+impl U24Le {
+    /// Returns the set of indices that are declassified when parsing a `u24` in little-endian byte
+    /// order.
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1, 2]
+    }
+}
+
 impl SpecCombinator for U24Le {
     type Type = u24;
 
     // To parse a u24 in little-endian byte order, we simply reverse the 3 bytes parsed by the
     // `Fixed<3>` combinator.
     // Later when this `u24` is used, it's converted to a `u32` in big-endian byte order.
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, u24), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (u24, Set<int>)), ()> {
         match Fixed::<3>.spec_parse(s) {
-            Ok((n, bytes)) => Ok((n, u24([bytes[2], bytes[1], bytes[0]]))),
+            Ok((n, (bytes, _))) => Ok((n, (u24([bytes[2], bytes[1], bytes[0]]), self.declassify_indices()))),
             _ => Err(()),
         }
     }
@@ -1074,7 +1131,7 @@ impl SecureSpecCombinator for U24Le {
         match Fixed::<3>.spec_serialize(v_rev.0@) {
             Ok(buf) => {
                 match Fixed::<3>.spec_parse(buf) {
-                    Ok((n, bytes)) => {
+                    Ok((n, (bytes, _))) => {
                         bytes_eq_view_implies_eq([bytes[2], bytes[1], bytes[0]], v.0);
                     },
                     _ => {},
@@ -1087,7 +1144,7 @@ impl SecureSpecCombinator for U24Le {
     proof fn theorem_parse_serialize_roundtrip(&self, s: Seq<u8>) {
         Fixed::<3>.theorem_parse_serialize_roundtrip(s);
         match Fixed::<3>.spec_parse(s) {
-            Ok((n, bytes)) => {
+            Ok((n, (bytes, _))) => {
                 assert([bytes[0], bytes[1], bytes[2]]@ == bytes);
             },
             _ => {},
@@ -1136,12 +1193,20 @@ impl View for U24Be {
     }
 }
 
+impl U24Be {
+    /// Returns the set of indices that are declassified when parsing a `u24` in big-endian byte
+    /// order.
+    pub open spec fn declassify_indices(&self) -> Set<int> {
+        set![0, 1, 2]
+    }
+}
+
 impl SpecCombinator for U24Be {
     type Type = u24;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, u24), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (u24, Set<int>)), ()> {
         match Fixed::<3>.spec_parse(s) {
-            Ok((n, bytes)) => Ok((n, u24([bytes[0], bytes[1], bytes[2]]))),
+            Ok((n, (bytes, _))) => Ok((n, (u24([bytes[0], bytes[1], bytes[2]]), self.declassify_indices()))),
             _ => Err(()),
         }
     }
@@ -1170,7 +1235,7 @@ impl SecureSpecCombinator for U24Be {
         match Fixed::<3>.spec_serialize(v.0@) {
             Ok(buf) => {
                 match Fixed::<3>.spec_parse(buf) {
-                    Ok((n, bytes)) => {
+                    Ok((n, (bytes, _))) => {
                         bytes_eq_view_implies_eq([bytes[0], bytes[1], bytes[2]], v.0);
                     },
                     _ => {},
@@ -1183,7 +1248,7 @@ impl SecureSpecCombinator for U24Be {
     proof fn theorem_parse_serialize_roundtrip(&self, s: Seq<u8>) {
         Fixed::<3>.theorem_parse_serialize_roundtrip(s);
         match Fixed::<3>.spec_parse(s) {
-            Ok((n, bytes)) => {
+            Ok((n, (bytes, _))) => {
                 assert([bytes[0], bytes[1], bytes[2]]@ == bytes);
             },
             _ => {},

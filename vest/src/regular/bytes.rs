@@ -41,9 +41,9 @@ impl Variable {
 impl SpecCombinator for Variable {
     type Type = Seq<u8>;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         if self.0 <= s.len() {
-            Ok((self.0, s.subrange(0, self.0 as int)))
+            Ok((self.0, (s.subrange(0, self.0 as int), Set::empty())))
         } else {
             Err(())
         }
@@ -69,7 +69,7 @@ impl SecureSpecCombinator for Variable {
 
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
         assert(s1.add(s2).len() == s1.len() + s2.len());
-        if let Ok((n, v)) = self.spec_parse(s1) {
+        if let Ok((n, (v, _))) = self.spec_parse(s1) {
             assert(s1.add(s2).subrange(0, n as int) == s1.subrange(0, n as int))
         } else {
         }
@@ -141,9 +141,9 @@ impl<const N: usize> View for Fixed<N> {
 impl<const N: usize> SpecCombinator for Fixed<N> {
     type Type = Seq<u8>;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         if N <= s.len() {
-            Ok((N, s.subrange(0, N as int)))
+            Ok((N, (s.subrange(0, N as int), Set::empty())))
         } else {
             Err(())
         }
@@ -169,7 +169,7 @@ impl<const N: usize> SecureSpecCombinator for Fixed<N> {
 
     proof fn lemma_prefix_secure(&self, s1: Seq<u8>, s2: Seq<u8>) {
         assert(s1.add(s2).len() == s1.len() + s2.len());
-        if let Ok((n, v)) = self.spec_parse(s1) {
+        if let Ok((n, (v, _))) = self.spec_parse(s1) {
             assert(s1.add(s2).subrange(0, n as int) == s1.subrange(0, n as int))
         } else {
         }
@@ -239,9 +239,9 @@ impl View for Tail {
 impl SpecCombinator for Tail {
     type Type = Seq<u8>;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         if s.len() <= usize::MAX {
-            Ok((s.len() as usize, s))
+            Ok((s.len() as usize, (s, Set::empty())))
         } else {
             Err(())
         }
