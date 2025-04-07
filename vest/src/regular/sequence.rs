@@ -17,13 +17,14 @@ impl<Fst, Snd> SpecCombinator for SpecPair<Fst, Snd> where
  {
     type Type = (Fst::Type, Snd::Type);
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         if Fst::is_prefix_secure() {
-            if let Ok((n, v1)) = self.fst.spec_parse(s) {
+            if let Ok((n, (v1, s1))) = self.fst.spec_parse(s) {
                 let snd = (self.snd)(v1);
-                if let Ok((m, v2)) = snd.spec_parse(s.subrange(n as int, s.len() as int)) {
+                if let Ok((m, (v2, s2))) = snd.spec_parse(s.subrange(n as int, s.len() as int)) {
                     if n <= usize::MAX - m {
-                        Ok(((n + m) as usize, (v1, v2)))
+                        let s2_ = s2.map(|i:int| i + n as int);
+                        Ok(((n + m) as usize, ((v1, v2), s1.union(s2_))))
                     } else {
                         Err(())
                     }
@@ -76,14 +77,14 @@ impl<Fst, Snd> SecureSpecCombinator for SpecPair<Fst, Snd> where
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
-        if let Ok((nm, (v0, v1))) = self.spec_parse(buf) {
-            let (n, v0_) = self.fst.spec_parse(buf).unwrap();
+        if let Ok((nm, ((v0, v1), s01))) = self.spec_parse(buf) {
+            let (n, (v0_, s0_)) = self.fst.spec_parse(buf).unwrap();
             self.fst.lemma_parse_length(buf);
             let buf0 = buf.subrange(0, n as int);
             let buf1 = buf.subrange(n as int, buf.len() as int);
             assert(buf == buf0.add(buf1));
             self.fst.theorem_parse_serialize_roundtrip(buf);
-            let (m, v1_) = (self.snd)(v0).spec_parse(buf1).unwrap();
+            let (m, (v1_, s1_)) = (self.snd)(v0).spec_parse(buf1).unwrap();
             (self.snd)(v0).theorem_parse_serialize_roundtrip(buf1);
             (self.snd)(v0).lemma_parse_length(buf1);
             let buf2 = self.spec_serialize((v0, v1)).unwrap();
@@ -98,8 +99,8 @@ impl<Fst, Snd> SecureSpecCombinator for SpecPair<Fst, Snd> where
 
     proof fn lemma_prefix_secure(&self, buf: Seq<u8>, s2: Seq<u8>) {
         if Fst::is_prefix_secure() && Snd::is_prefix_secure() {
-            if let Ok((nm, (v0, v1))) = self.spec_parse(buf) {
-                let (n, _) = self.fst.spec_parse(buf).unwrap();
+            if let Ok((nm, ((v0, v1), s01))) = self.spec_parse(buf) {
+                let (n, (v0_, s0_)) = self.fst.spec_parse(buf).unwrap();
                 self.fst.lemma_parse_length(buf);
                 let buf0 = buf.subrange(0, n as int);
                 let buf1 = buf.subrange(n as int, buf.len() as int);
@@ -107,7 +108,7 @@ impl<Fst, Snd> SecureSpecCombinator for SpecPair<Fst, Snd> where
                 self.fst.lemma_prefix_secure(buf0, buf1.add(s2));
                 self.fst.lemma_prefix_secure(buf, s2);
                 let snd = (self.snd)(v0);
-                let (m, v1_) = snd.spec_parse(buf1).unwrap();
+                let (m, (v1_, s1_)) = snd.spec_parse(buf1).unwrap();
                 assert(buf.add(s2).subrange(0, n as int) == buf0);
                 assert(buf.add(s2).subrange(n as int, buf.add(s2).len() as int) == buf1.add(s2));
                 snd.lemma_prefix_secure(buf1, s2);
@@ -118,9 +119,9 @@ impl<Fst, Snd> SecureSpecCombinator for SpecPair<Fst, Snd> where
     }
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
-        if let Ok((n, v1)) = self.fst.spec_parse(s) {
+        if let Ok((n, (v1, s1))) = self.fst.spec_parse(s) {
             let snd = (self.snd)(v1);
-            if let Ok((m, v2)) = snd.spec_parse(s.subrange(n as int, s.len() as int)) {
+            if let Ok((m, (v2, s2))) = snd.spec_parse(s.subrange(n as int, s.len() as int)) {
                 self.fst.lemma_parse_length(s);
                 snd.lemma_parse_length(s.subrange(n as int, s.len() as int));
             }
@@ -133,9 +134,9 @@ impl<Fst, Snd> SecureSpecCombinator for SpecPair<Fst, Snd> where
     }
 
     proof fn lemma_parse_productive(&self, s: Seq<u8>) {
-        if let Ok((n, v1)) = self.fst.spec_parse(s) {
+        if let Ok((n, (v1, s1))) = self.fst.spec_parse(s) {
             let snd = (self.snd)(v1);
-            if let Ok((m, v2)) = snd.spec_parse(s.subrange(n as int, s.len() as int)) {
+            if let Ok((m, (v2, s2))) = snd.spec_parse(s.subrange(n as int, s.len() as int)) {
                 if self.fst.is_productive() {
                     self.fst.lemma_parse_productive(s);
                 } else {
@@ -295,7 +296,7 @@ impl<I, O, Fst, Snd, C> Combinator<I, O> for Pair<I, O, Fst, Snd, C> where
 impl<Fst: SecureSpecCombinator, Snd: SpecCombinator> SpecCombinator for (Fst, Snd) {
     type Type = (Fst::Type, Snd::Type);
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
         SpecPair { fst: self.0, snd: |r: Fst::Type| self.1 }.spec_parse(s)
     }
 
@@ -436,9 +437,9 @@ impl<Fst: SecureSpecCombinator<Type = ()>, Snd: SpecCombinator> SpecCombinator f
 > {
     type Type = Snd::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
-        if let Ok((n, ((), v))) = (self.0, self.1).spec_parse(s) {
-            Ok((n, v))
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
+        if let Ok((n, (((), v), ds))) = (self.0, self.1).spec_parse(s) {
+            Ok((n, (v, ds)))
         } else {
             Err(())
         }
@@ -458,7 +459,7 @@ impl<
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
-        if let Ok((n, ((), v))) = (self.0, self.1).spec_parse(buf) {
+        if let Ok((n, (((), v), _))) = (self.0, self.1).spec_parse(buf) {
             (self.0, self.1).theorem_parse_serialize_roundtrip(buf);
         }
     }
@@ -474,7 +475,7 @@ impl<
     }
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
-        if let Ok((n, ((), v))) = (self.0, self.1).spec_parse(s) {
+        if let Ok((n, (((), v), _))) = (self.0, self.1).spec_parse(s) {
             (self.0, self.1).lemma_parse_length(s);
         }
     }
@@ -484,7 +485,7 @@ impl<
     }
 
     proof fn lemma_parse_productive(&self, s: Seq<u8>) {
-        if let Ok((n, ((), v))) = (self.0, self.1).spec_parse(s) {
+        if let Ok((n, (((), v), _))) = (self.0, self.1).spec_parse(s) {
             (self.0, self.1).lemma_parse_productive(s);
         }
     }
@@ -546,9 +547,9 @@ impl<Fst: SecureSpecCombinator, Snd: SpecCombinator<Type = ()>> SpecCombinator f
 > {
     type Type = Fst::Type;
 
-    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, Self::Type), ()> {
-        if let Ok((n, (v, ()))) = (self.0, self.1).spec_parse(s) {
-            Ok((n, v))
+    open spec fn spec_parse(&self, s: Seq<u8>) -> Result<(usize, (Self::Type, Set<int>)), ()> {
+        if let Ok((n, ((v, ()), ds))) = (self.0, self.1).spec_parse(s) {
+            Ok((n, (v, ds)))
         } else {
             Err(())
         }
@@ -568,7 +569,7 @@ impl<
     }
 
     proof fn theorem_parse_serialize_roundtrip(&self, buf: Seq<u8>) {
-        if let Ok((n, (v, ()))) = (self.0, self.1).spec_parse(buf) {
+        if let Ok((n, ((v, ()), _))) = (self.0, self.1).spec_parse(buf) {
             (self.0, self.1).theorem_parse_serialize_roundtrip(buf);
         }
     }
@@ -584,7 +585,7 @@ impl<
     }
 
     proof fn lemma_parse_length(&self, s: Seq<u8>) {
-        if let Ok((n, (v, ()))) = (self.0, self.1).spec_parse(s) {
+        if let Ok((n, ((v, ()), _))) = (self.0, self.1).spec_parse(s) {
             (self.0, self.1).lemma_parse_length(s);
         }
     }
@@ -594,7 +595,7 @@ impl<
     }
 
     proof fn lemma_parse_productive(&self, s: Seq<u8>) {
-        if let Ok((n, (v, ()))) = (self.0, self.1).spec_parse(s) {
+        if let Ok((n, ((v, ()), _))) = (self.0, self.1).spec_parse(s) {
             (self.0, self.1).lemma_parse_productive(s);
         }
     }

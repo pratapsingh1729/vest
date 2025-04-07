@@ -5,8 +5,8 @@
 pub mod bytes;
 /// Uints combinators
 pub mod uints;
-// /// Sequencing combinators
-// pub mod sequence;
+/// Sequencing combinators
+pub mod sequence;
 // /// Repetition combinators
 // pub mod repetition;
 // /// Variant combinators
